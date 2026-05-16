@@ -1,0 +1,57 @@
+Modified Time: 2026-05-15 13:48:13 +08:00
+
+1. File: /Users/pro/Downloads/plan-deduce-demo/src/main/java/com/example/plandeduce/service/ProgressDataService.java
+   Methods:
+   - preloadFullSnapshots
+   - queryCachedFullData
+   - queryFullData
+   - queryIncrementalData
+   - querySnapshotIncrementalData
+   - queryMaxSimTime
+   Change Type:
+   - Added and corrected interface comments to match current snapshot/increment semantics
+
+2. File: /Users/pro/Downloads/plan-deduce-demo/src/main/java/com/example/plandeduce/service/impl/ProgressDataServiceImpl.java
+   Methods:
+   - preloadFullSnapshots
+   - queryCachedFullData
+   - queryFullData
+   - queryIncrementalData
+   - querySnapshotIncrementalData
+   - buildFullSnapshotAtPoint
+   - queryRowsAtTime
+   - queryDynamicRows
+   - queryLatestRowsByRoomObjectId
+   - sortByRoomObjectId
+   - withPieceBaseAndSourceType
+   Change Type:
+   - Adjusted full snapshot construction to "0-point base + latest replacement state"
+   - Added snapshot-style incremental query
+   - Corrected outdated comments and added missing method comments
+
+3. File: /Users/pro/Downloads/plan-deduce-demo/src/main/java/com/example/plandeduce/service/ScenarioTask.java
+   Methods:
+   - start
+   - pushCurrentStateSnapshot
+   - skip
+   - ensureWorkerScheduled
+   Change Type:
+   - Updated snapshot assembly to use querySnapshotIncrementalData
+   - Corrected comments to match current business rules
+   - Kept skip semantics aligned with "worker started by start()"
+
+4. File: /Users/pro/Downloads/plan-deduce-demo/src/test/java/com/example/plandeduce/PlanDeduceIntegrationTest.java
+   Methods:
+   - shouldReturnFullAndIncrementalDataWhenSkippingToEleven
+   - shouldReturnFullAndCumulativeIncrementalDataWhenSkippingToThirteen
+   - shouldHonorCustomSpeedPauseAndSkip
+   - shouldUseTwentyMinuteFullSnapshotWhenIntervalChanges
+   - shouldClampNegativeSkipToZero
+   Change Type:
+   - Updated test expectations to match new full snapshot and snapshot-increment rules
+   - Aligned skip-related tests with current "initialize first, then skip" workflow
+
+Full Test Result:
+- Command: mvn test
+- Result: BUILD SUCCESS
+- Summary: Tests run: 19, Failures: 0, Errors: 0, Skipped: 0
