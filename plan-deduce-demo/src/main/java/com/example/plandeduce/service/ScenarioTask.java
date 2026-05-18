@@ -74,6 +74,11 @@ public class ScenarioTask {
      */
     private final AtomicBoolean running = new AtomicBoolean(false);
     /**
+     * 当前任务是否已经完成播放所需的运行时初始化。
+     * 这里的初始化包括全量快照预加载、最大业务时间查询等启动 worker 前的准备动作。
+     */
+    private final AtomicBoolean initialized = new AtomicBoolean(false);
+    /**
      * 当前任务采用的全量快照间隔，单位秒。
      * 这个值直接影响 fullTime 的计算规则，以及“最近全量 + 之后增量”的组装方式。
      */
@@ -132,10 +137,7 @@ public class ScenarioTask {
             // 初始化时允许前端覆盖默认全量间隔，后续 fullTime 计算都以这个值为准。
             fullSaveIntervalSeconds.set(intervalSeconds);
         }
-        // 任务开始时先把所有间隔点的全量快照预加载好，后续播放直接从缓存读取。
-        progressDataService.preloadFullSnapshots(dbName, fullSaveIntervalSeconds.get());
-        // 最大业务时间只在初始化时查询一次，播放过程中直接使用缓存值，避免每个 tick 重复查库。
-        maxSimTime.set(progressDataService.queryMaxSimTime(dbName));
+        initializeRuntimeState();
         running.set(true);
         // INIT 先推一次当前快照，确保前端在收到第一帧前就拿到准确状态和数据。
         pushCurrentStateSnapshot("INIT");
@@ -240,6 +242,14 @@ public class ScenarioTask {
             // 恢复播放时不能保留 0 倍速，否则任务会处于 running=true 但永远不推进的假播放态。
             speed.set(1);
         }
+        if (!initialized.get()) {
+            initializeRuntimeState();
+            running.set(true);
+            // 首次通过“开始”进入播放时，也要先补一帧 INIT，确保前端先拿到基准快照。
+            pushCurrentStateSnapshot("INIT");
+            ensureWorkerScheduled();
+            return;
+        }
         running.set(true);
         pushStatus("START", calculateNearestFullTime(currentTime.get()), "已开始");
     }
@@ -252,7 +262,7 @@ public class ScenarioTask {
             throw new IllegalArgumentException("全量保存间隔必须大于 0 秒");
         }
         fullSaveIntervalSeconds.set(intervalSeconds);
-        progressDataService.preloadFullSnapshots(dbName, fullSaveIntervalSeconds.get());
+        initializeRuntimeState();
         pushCurrentStateSnapshot("INTERVAL");
     }
 
@@ -299,6 +309,7 @@ public class ScenarioTask {
                 fullTime,
                 speed.get(),
                 running.get(),
+                maxSimTime.get(),
                 fullData,
                 incrementalData
         );
@@ -327,6 +338,7 @@ public class ScenarioTask {
                 fullTime,
                 speed.get(),
                 running.get(),
+                maxSimTime.get(),
                 fullData,
                 incrementalData
         );
@@ -370,6 +382,24 @@ public class ScenarioTask {
     }
 
     /**
+     * 返回当前任务已缓存的最大业务秒点。
+     * 供初始化接口直接回给前端作为进度条结束时间。
+     */
+    public int getMaxSimTime() {
+        return maxSimTime.get();
+    }
+
+    /**
+     * 播放前所需的运行时准备动作。
+     * 允许重复调用，用于“先设倍速、后点击开始”这类延迟初始化场景。
+     */
+    private void initializeRuntimeState() {
+        progressDataService.preloadFullSnapshots(dbName, fullSaveIntervalSeconds.get());
+        maxSimTime.set(progressDataService.queryMaxSimTime(dbName));
+        initialized.set(true);
+    }
+
+    /**
      * 推送状态类消息。
      * 这类消息不携带 data，只用于通知前端切换播放状态或显示结束/异常结果。
      */
@@ -382,6 +412,7 @@ public class ScenarioTask {
                 fullTime,
                 speed.get(),
                 running.get(),
+                maxSimTime.get(),
                 text
         );
     }

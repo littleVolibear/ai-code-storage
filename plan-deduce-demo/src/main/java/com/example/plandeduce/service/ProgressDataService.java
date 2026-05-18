@@ -38,4 +38,10 @@ public interface ProgressDataService {
      * 查询当前库可播放到的最大业务秒点。
      */
     Integer queryMaxSimTime(String dbName);
+
+    /**
+     * 查询当前推演任务的开始时间。
+     * 优先按 roomInfo.roomId=dbName 命中；如果未配置，则回退到首条 roomInfo 记录。
+     */
+    String queryRoomStartTime(String dbName);
 }

@@ -17,4 +17,5 @@ public class PushMessage {
     private List<RoomObjectHis> incrementalData; // 全量秒点之后到当前秒的增量数据
     private List<RoomObjectHis> data; // 给前端直接消费的合并结果
     private String message; // 辅助说明文案
+    private Integer maxSimTime; // 推演最大业务时间（进度条结束时间）
 }

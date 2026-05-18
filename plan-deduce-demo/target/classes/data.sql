@@ -1,3 +1,6 @@
+INSERT INTO roomInfo(id, title, startTime, roomId)
+VALUES (1, '示例推演', '2026-01-01 00:00:00', 'plandeduce');
+
 INSERT INTO OBJ_ROOM_HIS(
     ROOM_OBJECT_ID,
     SCENARIO_ID,

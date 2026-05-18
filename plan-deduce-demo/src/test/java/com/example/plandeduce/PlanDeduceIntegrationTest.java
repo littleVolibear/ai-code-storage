@@ -93,8 +93,6 @@ class PlanDeduceIntegrationTest {
         JsonNode skipMessage = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
         assertEquals(11, skipMessage.path("currentTime").asInt());
         assertEquals(10, skipMessage.path("fullTime").asInt());
-        assertSimtimes(skipMessage.path("fullData"), 10, 10, 10);
-        assertSimtimes(skipMessage.path("incrementalData"), repeatSimtime(11));
         assertSimtimes(skipMessage.path("data"), concat(repeatSimtime(10), repeatSimtime(11)));
         assertPieceFieldsPresent(skipMessage.path("data"));
     }
@@ -111,8 +109,6 @@ class PlanDeduceIntegrationTest {
         JsonNode skipMessage = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
         assertEquals(13, skipMessage.path("currentTime").asInt());
         assertEquals(10, skipMessage.path("fullTime").asInt());
-        assertSimtimes(skipMessage.path("fullData"), 10, 10, 10);
-        assertSimtimes(skipMessage.path("incrementalData"), repeatSimtime(13));
         assertSimtimes(skipMessage.path("data"), concat(repeatSimtime(10), repeatSimtime(13)));
         assertPieceFieldsPresent(skipMessage.path("data"));
     }
@@ -127,6 +123,7 @@ class PlanDeduceIntegrationTest {
         JsonNode init = socket.awaitMessageOfType("INIT", DEFAULT_TIMEOUT);
         assertEquals(0, init.path("currentTime").asInt());
         assertEquals(0, init.path("fullTime").asInt());
+        assertEquals(1200, init.path("maxSimTime").asInt());
 
         JsonNode firstPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
         assertEquals(1, firstPlay.path("currentTime").asInt());
@@ -251,6 +248,107 @@ class PlanDeduceIntegrationTest {
         assertFalse(secondPause.path("running").asBoolean());
         socket.assertNoMessageOfType("PLAY", Duration.ofMillis(350));
         socket.assertNoMessageOfType("ERROR", Duration.ofMillis(350));
+    }
+
+    @Test
+    void shouldSupportDocumentedScenarioTwoFlow() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        call("/plan/speed?dbName=" + DB_NAME + "&speed=3&sessionId=" + sessionId);
+        JsonNode speed = socket.awaitMessageOfType("SPEED", DEFAULT_TIMEOUT);
+        assertEquals(0, speed.path("currentTime").asInt());
+        assertEquals(3, speed.path("speed").asInt());
+        assertFalse(speed.path("running").asBoolean());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
+        JsonNode init = socket.awaitMessageOfType("INIT", DEFAULT_TIMEOUT);
+        assertEquals(0, init.path("currentTime").asInt());
+        assertEquals(3, init.path("speed").asInt());
+        assertTrue(init.path("running").asBoolean());
+        assertEquals(1200, init.path("maxSimTime").asInt());
+
+        JsonNode firstPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(3, firstPlay.path("currentTime").asInt());
+        assertEquals(3, firstPlay.path("speed").asInt());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
+        JsonNode pause = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(3, pause.path("currentTime").asInt());
+        assertEquals(3, pause.path("speed").asInt());
+        assertFalse(pause.path("running").asBoolean());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
+        JsonNode start = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
+        assertEquals(3, start.path("currentTime").asInt());
+        assertEquals(3, start.path("speed").asInt());
+        assertTrue(start.path("running").asBoolean());
+
+        JsonNode resumedPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(6, resumedPlay.path("currentTime").asInt());
+        assertEquals(3, resumedPlay.path("speed").asInt());
+
+        call("/plan/skip?dbName=" + DB_NAME + "&skip=1198&sessionId=" + sessionId);
+        JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
+        assertEquals(1198, skip.path("currentTime").asInt());
+
+        JsonNode finishPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1200, finishPlay.path("currentTime").asInt());
+
+        JsonNode pauseAtFinish = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1200, pauseAtFinish.path("currentTime").asInt());
+
+        JsonNode finish = socket.awaitMessageOfType("FINISH", DEFAULT_TIMEOUT);
+        assertEquals(1200, finish.path("currentTime").asInt());
+    }
+
+    @Test
+    void shouldSupportDocumentedScenarioThreeFlow() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&skip=0&sessionId=" + sessionId);
+        JsonNode init = socket.awaitMessageOfType("INIT", DEFAULT_TIMEOUT);
+        assertEquals(1200, init.path("maxSimTime").asInt());
+
+        JsonNode playAtFive = waitUntilCurrentTimeAtLeast(socket, 5, Duration.ofSeconds(3));
+        assertEquals(5, playAtFive.path("currentTime").asInt());
+        assertEquals(1, playAtFive.path("speed").asInt());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
+        JsonNode pause = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(5, pause.path("currentTime").asInt());
+        assertEquals(1, pause.path("speed").asInt());
+        assertFalse(pause.path("running").asBoolean());
+
+        call("/plan/speed?dbName=" + DB_NAME + "&speed=3&sessionId=" + sessionId);
+        JsonNode speed = socket.awaitMessageOfType("SPEED", DEFAULT_TIMEOUT);
+        assertEquals(5, speed.path("currentTime").asInt());
+        assertEquals(3, speed.path("speed").asInt());
+        assertFalse(speed.path("running").asBoolean());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
+        JsonNode start = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
+        assertEquals(5, start.path("currentTime").asInt());
+        assertEquals(3, start.path("speed").asInt());
+        assertTrue(start.path("running").asBoolean());
+
+        JsonNode resumedPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(8, resumedPlay.path("currentTime").asInt());
+        assertEquals(3, resumedPlay.path("speed").asInt());
+
+        call("/plan/skip?dbName=" + DB_NAME + "&skip=1198&sessionId=" + sessionId);
+        JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
+        assertEquals(1198, skip.path("currentTime").asInt());
+
+        JsonNode finishPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1200, finishPlay.path("currentTime").asInt());
+
+        JsonNode pauseAtFinish = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1200, pauseAtFinish.path("currentTime").asInt());
+
+        JsonNode finish = socket.awaitMessageOfType("FINISH", DEFAULT_TIMEOUT);
+        assertEquals(1200, finish.path("currentTime").asInt());
     }
 
     @Test
@@ -397,7 +495,6 @@ class PlanDeduceIntegrationTest {
         JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
         assertEquals(13, skip.path("currentTime").asInt());
         assertEquals(10, skip.path("fullTime").asInt());
-        assertSimtimes(skip.path("incrementalData"), repeatSimtime(13));
 
         JsonNode nextPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
         assertEquals(16, nextPlay.path("currentTime").asInt());
@@ -424,8 +521,6 @@ class PlanDeduceIntegrationTest {
         JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
         assertEquals(33, skip.path("currentTime").asInt());
         assertEquals(20, skip.path("fullTime").asInt());
-        assertSimtimes(skip.path("fullData"), 20, 20, 20);
-        assertSimtimes(skip.path("incrementalData"), repeatSimtime(33));
     }
 
     @Test
@@ -557,7 +652,6 @@ class PlanDeduceIntegrationTest {
         call("/plan/skip?dbName=" + altDbName + "&skip=13&sessionId=" + sharedSessionId);
         JsonNode skipAlt = socket.awaitMessage("SKIP", altDbName, DEFAULT_TIMEOUT);
         assertEquals(13, skipAlt.path("currentTime").asInt());
-        assertSimtimes(skipAlt.path("incrementalData"), repeatSimtime(13));
     }
 
     @Test
@@ -629,7 +723,24 @@ class PlanDeduceIntegrationTest {
         JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
         assertEquals(0, skip.path("currentTime").asInt());
         assertEquals(0, skip.path("fullTime").asInt());
-        assertSimtimes(skip.path("fullData"), 0, 0, 0);
+    }
+
+    @Test
+    void shouldReturnProgressBarStartAndEndTimeWhenInitializing() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        ResponseEntity<String> response = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&skip=0&sessionId=" + sessionId);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        JsonNode body = objectMapper.readTree(response.getBody());
+        assertEquals(DB_NAME, body.path("dbName").asText());
+        assertEquals(sessionId, body.path("sessionId").asText());
+        assertEquals("2026-01-01 00:00:00", body.path("startTime").asText());
+        assertEquals(1200, body.path("endTime").asInt());
+
+        JsonNode init = socket.awaitMessageOfType("INIT", DEFAULT_TIMEOUT);
+        assertEquals(1200, init.path("maxSimTime").asInt());
     }
 
     @Test

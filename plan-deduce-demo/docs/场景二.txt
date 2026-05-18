@@ -1,0 +1,421 @@
+场景二：一开始希望使用 3 倍速播放，然后点击开始播放；中间经历“暂停 -> 再播放 -> 结束”。
+
+当前项目已经支持这个场景。也就是说，页面第一次进入时，前端可以先设置倍速为 3，再点击开始播放，后端会正确初始化任务并开始按 3 倍速推进。
+
+一、场景二的推荐交互流程
+
+整体顺序如下：
+1. 先建立 WebSocket
+2. 调用 speed，把倍速设成 3
+3. 再调用 startOrStop(flag=1) 开始播放
+4. 中途如果用户点击暂停，调用 startOrStop(flag=0)
+5. 用户再次点击播放，调用 startOrStop(flag=1)
+6. 最终等待后端推送 FINISH
+
+这个流程的关键点是：
+- 首次先调 speed=3，只是把后端任务的速度预设成 3
+- 首次再调 startOrStop(flag=1) 时，后端会自动完成初始化，并先发 INIT，再开始推送 PLAY
+- 也就是说，场景二下首次开始时，前端应该期待的是 INIT + PLAY，而不是 START + PLAY
+- START 只会出现在“已经初始化过一次、后续暂停后再恢复”的阶段
+
+二、请求 -> HTTP 返回 -> WS 返回 -> 前端处理
+
+请求 1
+前端请求：
+GET /plan/speed?dbName=plandeduce&speed=3&sessionId=s2
+
+HTTP 返回：
+- 200
+- 空响应体
+
+WS 返回：
+{
+  "type": "SPEED",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 0,
+  "fullTime": 0,
+  "speed": 3,
+  "running": false,
+  "message": "倍速已设置为 3"
+}
+
+前端处理：
+- 更新 speed=3
+- 更新 running=false
+- 这时只表示“倍速预设成功”
+- 还不表示已经开始播放
+- 也不表示任务已经初始化完成
+
+请求 2
+前端请求：
+GET /plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s2
+
+HTTP 返回：
+- 200
+- 空响应体
+
+WS 返回：
+首次开始时，后端会先发 INIT，然后持续发 PLAY。
+
+INIT 示例：
+{
+  "type": "INIT",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 0,
+  "fullTime": 0,
+  "speed": 3,
+  "running": true,
+  "fullData": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 100,
+      "nextPos": 101,
+      "direction": 0,
+      "currentSpeed": 800,
+      "visible": 1,
+      "simTime": 0,
+      "targetId": 1,
+      "sourceType": "FULL"
+    }
+  ],
+  "incrementalData": [],
+  "data": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 100,
+      "nextPos": 101,
+      "direction": 0,
+      "currentSpeed": 800,
+      "visible": 1,
+      "simTime": 0,
+      "targetId": 1,
+      "sourceType": "FULL"
+    }
+  ],
+  "message": "当前时间 0 秒，返回第 0 秒全量数据"
+}
+
+随后 PLAY 示例：
+{
+  "type": "PLAY",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 3,
+  "fullTime": 0,
+  "speed": 3,
+  "running": true,
+  "fullData": [],
+  "incrementalData": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 103,
+      "nextPos": 104,
+      "direction": 6,
+      "currentSpeed": 803,
+      "visible": 1,
+      "simTime": 3,
+      "targetId": 31,
+      "sourceType": "INCREMENT"
+    }
+  ],
+  "data": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 103,
+      "nextPos": 104,
+      "direction": 6,
+      "currentSpeed": 803,
+      "visible": 1,
+      "simTime": 3,
+      "targetId": 31,
+      "sourceType": "INCREMENT"
+    }
+  ],
+  "message": "当前时间 3 秒，返回第 1-3 秒增量数据"
+}
+
+前端处理：
+- 收到 INIT 后，设置 initialized=true
+- 用 INIT 的 fullData、incrementalData、data 建立初始页面
+- INIT.running=true，说明任务已进入播放态
+- 后续收到 PLAY 后，按 currentTime=3、6、9……推进进度条
+- 不要自己本地计时
+
+请求 3
+前端请求：
+GET /plan/startOrStop?dbName=plandeduce&flag=0&sessionId=s2
+
+HTTP 返回：
+- 200
+- 空响应体
+
+WS 返回：
+{
+  "type": "PAUSE",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 9,
+  "fullTime": 0,
+  "speed": 3,
+  "running": false,
+  "message": "已暂停"
+}
+
+前端处理：
+- 收到 PAUSE 后，再切 UI 到暂停态
+- 保留 speed=3
+- 更新 running=false
+- 不要在点按钮时立刻自己切暂停态
+
+请求 4
+前端请求：
+GET /plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s2
+
+HTTP 返回：
+- 200
+- 空响应体
+
+WS 返回：
+暂停后恢复时，后端会先发 START，再继续发 PLAY。
+
+START 示例：
+{
+  "type": "START",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 9,
+  "fullTime": 0,
+  "speed": 3,
+  "running": true,
+  "message": "已开始"
+}
+
+恢复后的 PLAY 示例：
+{
+  "type": "PLAY",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 12,
+  "fullTime": 10,
+  "speed": 3,
+  "running": true,
+  "fullData": [],
+  "incrementalData": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 112,
+      "nextPos": 113,
+      "direction": 24,
+      "currentSpeed": 812,
+      "visible": 1,
+      "simTime": 12,
+      "targetId": 121,
+      "sourceType": "INCREMENT"
+    }
+  ],
+  "data": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 112,
+      "nextPos": 113,
+      "direction": 24,
+      "currentSpeed": 812,
+      "visible": 1,
+      "simTime": 12,
+      "targetId": 121,
+      "sourceType": "INCREMENT"
+    }
+  ],
+  "message": "当前时间 12 秒，返回第 10-12 秒增量数据"
+}
+
+前端处理：
+- 收到 START 后，设置 running=true
+- 但 START 只表示恢复成功，不表示时间已经推进
+- 真正推进仍以后续 PLAY 为准
+- 恢复后 speed 仍然是 3，前端不要把它重置成 1
+
+请求 5
+前端请求：
+无。播放到终点后，由后端自动结束。
+
+HTTP 返回：
+- 无
+
+WS 返回：
+结束时，当前项目会按这个顺序推送：
+1. 最后一条 PLAY
+2. 一条 PAUSE
+3. 一条 FINISH
+
+最后一条 PLAY 示例：
+{
+  "type": "PLAY",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 1200,
+  "fullTime": 1200,
+  "speed": 3,
+  "running": true,
+  "fullData": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 100,
+      "nextPos": 101,
+      "direction": 240,
+      "currentSpeed": 800,
+      "visible": 1,
+      "simTime": 1200,
+      "targetId": 12001,
+      "sourceType": "FULL"
+    }
+  ],
+  "incrementalData": [],
+  "data": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 100,
+      "nextPos": 101,
+      "direction": 240,
+      "currentSpeed": 800,
+      "visible": 1,
+      "simTime": 1200,
+      "targetId": 12001,
+      "sourceType": "FULL"
+    }
+  ],
+  "message": "当前时间 1200 秒，返回第 1200 秒全量数据"
+}
+
+随后 PAUSE：
+{
+  "type": "PAUSE",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 1200,
+  "fullTime": 1200,
+  "speed": 3,
+  "running": false,
+  "message": "已暂停"
+}
+
+最后 FINISH：
+{
+  "type": "FINISH",
+  "dbName": "plandeduce",
+  "sessionId": "s2",
+  "currentTime": 1200,
+  "fullTime": 1200,
+  "speed": 3,
+  "running": false,
+  "message": "推演结束"
+}
+
+前端处理：
+- 收到最后一条 PLAY 时，刷新最终数据
+- 收到 PAUSE 时，只表示停止推进
+- 收到 FINISH 时，再设置 finished=true
+- 结束判断必须以 FINISH 为准，不要自己只靠 currentTime 判断
+
+三、场景二里前端应该存储什么
+
+建议前端统一维护这些状态：
+- connected
+- initialized
+- running
+- finished
+- dbName
+- sessionId
+- currentTime
+- fullTime
+- speed
+- data
+- fullData
+- incrementalData
+- lastMessageType
+- errorMessage
+
+这些字段在场景二里的作用：
+- connected：WebSocket 是否已连接
+- initialized：是否已经收到 INIT
+- running：是否处于播放态，只认 WS.running
+- finished：是否已经收到 FINISH
+- currentTime：当前业务时间，只认 PLAY.currentTime
+- fullTime：当前快照对应的最近全量点
+- speed：当前倍速，只认 WS.speed
+- data/fullData/incrementalData：页面渲染数据
+- lastMessageType：调试和状态机判断
+- errorMessage：保存 ERROR 消息或 HTTP 400 的 message
+
+四、场景二里前端最该注意哪些消息
+
+1. SPEED
+- 表示倍速设置成功
+- 不表示已经开始播放
+
+2. INIT
+- 表示首次开始时，后端已经完成初始化并给了第一帧基准数据
+- 对场景二来说，首次开始成功的关键消息是 INIT，不是 START
+
+3. PLAY
+- 这是唯一可靠的时间推进来源
+- 只要没有 PLAY，前端就不应让进度条自己走
+
+4. PAUSE
+- 表示当前停止推进
+- 不表示任务结束
+
+5. START
+- 只在暂停后恢复时出现
+- 只表示恢复命令成功
+- 真正继续走仍然看后续 PLAY
+
+6. FINISH
+- 表示任务真正结束
+- 收到 FINISH 后，前端再把 finished=true
+
+五、场景二的最终建议
+
+这个场景下，最稳妥的前后端交互方式是：
+1. 先连 WebSocket
+2. 调 speed=3
+3. 调 startOrStop(flag=1)
+4. 等 INIT
+5. 等后续 PLAY
+6. 暂停时调 startOrStop(flag=0)
+7. 等 PAUSE
+8. 恢复时调 startOrStop(flag=1)
+9. 等 START
+10. 等后续 PLAY
+11. 最终等 FINISH
+
+前端在这个场景里的核心职责仍然是三条：
+1. HTTP 只负责发命令
+2. WebSocket 才是唯一状态源
+3. currentTime、running、speed、finished 都只以后端消息为准

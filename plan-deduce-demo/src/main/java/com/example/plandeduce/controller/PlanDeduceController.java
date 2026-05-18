@@ -2,6 +2,9 @@ package com.example.plandeduce.controller;
 
 import com.example.plandeduce.service.ScenarioTask;
 import com.example.plandeduce.service.ScenarioTaskManager;
+import com.example.plandeduce.service.ProgressDataService;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotNull;
@@ -14,9 +17,11 @@ import javax.validation.constraints.NotNull;
  */
 public class PlanDeduceController {
     private final ScenarioTaskManager taskManager;
+    private final ProgressDataService progressDataService;
 
-    public PlanDeduceController(ScenarioTaskManager taskManager) {
+    public PlanDeduceController(ScenarioTaskManager taskManager, ProgressDataService progressDataService) {
         this.taskManager = taskManager;
+        this.progressDataService = progressDataService;
     }
 
     /**
@@ -24,9 +29,9 @@ public class PlanDeduceController {
      * 第一次进入页面或 destroy 后重新开始时，前端应优先调用这个接口。
      */
     @GetMapping("/sendPlanDeduce")
-    public void sendPlanDeduce(@NotNull(message = "库名不能为空") @RequestParam String dbName,
-                               @RequestParam(defaultValue = "0") Integer skip,
-                               @RequestParam(defaultValue = "default") String sessionId) {
+    public InitProgressResponse sendPlanDeduce(@NotNull(message = "库名不能为空") @RequestParam String dbName,
+                                               @RequestParam(defaultValue = "0") Integer skip,
+                                               @RequestParam(defaultValue = "default") String sessionId) {
         // 初始化前先检查现有任务是否仍在播放，避免同一个任务在执行中被重新初始化打乱状态和推送时序。
         ScenarioTask existingTask = taskManager.get(dbName, sessionId);
         if (existingTask != null && existingTask.isExecuting()) {
@@ -34,6 +39,7 @@ public class PlanDeduceController {
         }
         ScenarioTask task = existingTask != null ? existingTask : taskManager.getOrCreate(dbName, sessionId);
         task.start(skip, null);
+        return new InitProgressResponse(dbName, sessionId, progressDataService.queryRoomStartTime(dbName), task.getMaxSimTime());
     }
 
     /**
@@ -93,5 +99,17 @@ public class PlanDeduceController {
     public void destroy(@RequestParam String dbName,
                         @RequestParam(defaultValue = "default") String sessionId) {
         taskManager.remove(dbName, sessionId);
+    }
+
+    /**
+     * 初始化接口直接返回进度条时间范围，避免前端还要再额外查一次。
+     */
+    @Data
+    @AllArgsConstructor
+    public static class InitProgressResponse {
+        private final String dbName;
+        private final String sessionId;
+        private final String startTime;
+        private final Integer endTime;
     }
 }

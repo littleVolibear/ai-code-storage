@@ -13,6 +13,9 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.stereotype.Service;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -196,6 +199,21 @@ public class ProgressDataServiceImpl implements ProgressDataService {
                 .last("LIMIT 1");
         RoomObjectHis latest = getMapper(dbName).selectOne(queryWrapper);
         return latest == null || latest.getSimTime() == null ? 0 : latest.getSimTime();
+    }
+
+    @Override
+    public String queryRoomStartTime(String dbName) {
+        String validatedDbName = validateDbName(dbName);
+        try (Connection connection = new DriverManagerDataSource(
+                buildJdbcUrl(validatedDbName),
+                dataSourceProperties.getUsername(),
+                dataSourceProperties.getPassword()
+        ).getConnection()) {
+            String startTime = queryRoomStartTimeByRoomId(connection, validatedDbName);
+            return startTime != null ? startTime : queryFirstRoomStartTime(connection);
+        } catch (Exception e) {
+            throw new IllegalStateException("查询 roomInfo.startTime 失败, dbName=" + validatedDbName, e);
+        }
     }
 
     /**
@@ -453,6 +471,28 @@ public class ProgressDataServiceImpl implements ProgressDataService {
      */
     private String buildFullSnapshotCacheKey(String dbName, int intervalSeconds) {
         return validateDbName(dbName) + ":" + intervalSeconds;
+    }
+
+    private String queryRoomStartTimeByRoomId(Connection connection, String roomId) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT startTime FROM roomInfo WHERE roomId = ? ORDER BY id LIMIT 1")) {
+            statement.setString(1, roomId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getString("startTime");
+                }
+                return null;
+            }
+        }
+    }
+
+    private String queryFirstRoomStartTime(Connection connection) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT startTime FROM roomInfo ORDER BY id LIMIT 1");
+             ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getString("startTime");
+            }
+            return null;
+        }
     }
 
     /**

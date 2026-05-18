@@ -5,6 +5,7 @@ import com.example.plandeduce.model.PushMessage;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -31,17 +32,18 @@ public class PlanDeducePush {
                              int fullTime,
                              int speed,
                              boolean running,
+                             int maxSimTime,
                              List<RoomObjectHis> fullData,
                              List<RoomObjectHis> incrementalData) {
-        // data 是给前端直接消费的完整结果，内部统一按“全量 + 增量”顺序拼装。
+        // data 是给前端直接消费的完整结果，内部统一按”全量 + 增量”顺序拼装。
         List<RoomObjectHis> mergedData = new ArrayList<>(fullData.size() + incrementalData.size());
         mergedData.addAll(fullData);
         mergedData.addAll(incrementalData);
 
         // 所有快照类事件沿用同一份协议结构，避免 INIT/PLAY/SKIP/INTERVAL 的字段漂移。
-        PushMessage message = buildBaseMessage(type, dbName, sessionId, currentTime, fullTime, speed, running);
-        message.setFullData(fullData);
-        message.setIncrementalData(incrementalData);
+        PushMessage message = buildBaseMessage(type, dbName, sessionId, currentTime, fullTime, speed, running, maxSimTime);
+        message.setFullData(Collections.emptyList());
+        message.setIncrementalData(Collections.emptyList());
         message.setData(mergedData);
         message.setMessage(buildSnapshotMessage(currentTime, fullTime, incrementalData));
         webSocketHandler.sendToSession(sessionId, message);
@@ -58,9 +60,10 @@ public class PlanDeducePush {
                            Integer fullTime,
                            int speed,
                            boolean running,
+                           int maxSimTime,
                            String text) {
         // 状态类事件同样保留 currentTime/fullTime/speed/running，方便前端只维护一套状态同步逻辑。
-        PushMessage message = buildBaseMessage(type, dbName, sessionId, currentTime, fullTime, speed, running);
+        PushMessage message = buildBaseMessage(type, dbName, sessionId, currentTime, fullTime, speed, running, maxSimTime);
         message.setMessage(text);
         webSocketHandler.sendToSession(sessionId, message);
     }
@@ -74,7 +77,8 @@ public class PlanDeducePush {
                                          int currentTime,
                                          Integer fullTime,
                                          int speed,
-                                         boolean running) {
+                                         boolean running,
+                                         int maxSimTime) {
         PushMessage message = new PushMessage();
         message.setType(type);
         message.setDbName(dbName);
@@ -83,6 +87,7 @@ public class PlanDeducePush {
         message.setFullTime(fullTime);
         message.setSpeed(speed);
         message.setRunning(running);
+        message.setMaxSimTime(maxSimTime);
         return message;
     }
 

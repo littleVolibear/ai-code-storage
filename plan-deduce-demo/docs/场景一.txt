@@ -1,0 +1,421 @@
+这个项目的实际交互模型很明确：HTTP 只负责“发控制命令”，WebSocket 才是前端唯一可信的状态源。控制器注释和实现就是这么设计的，见 PlanDeduceController.java；而 WebSocket 未连接时，后端推送会直接丢弃，见 PlanDeduceWebSocketHandler.java。
+
+针对“点击播放 -> 暂停 -> 再播放 -> 最后结束”这个场景，建议前端按下面的方式调后端。
+
+建议流程
+1. 页面进入先建立 ws://.../ws/planDeduce?sessionId=xxx。
+2. 用户第一次点播放时，调用 GET /plan/sendPlanDeduce?dbName=...&skip=0&sessionId=xxx。
+3. 前端等 INIT 消息后完成初始化，再等后续 PLAY 推进进度。
+4. 用户点暂停时，调用 GET /plan/startOrStop?dbName=...&flag=0&sessionId=xxx。
+5. 前端收到 PAUSE 后，再把 UI 切成暂停态。
+6. 用户点继续播放时，调用 GET /plan/startOrStop?dbName=...&flag=1&sessionId=xxx。
+7. 前端收到 START 后标记恢复中，真正进度推进仍以后续 PLAY 为准。
+8. 播到终点时，后端会先发最后一帧 PLAY，再发 PAUSE，最后发 FINISH，这一点在 ScenarioTask.java 和 PlanDeduceIntegrationTest.java 里都能看到。
+
+前端职责
+- 要保存 dbName、sessionId、initialized、running、finished、currentTime、fullTime、speed、fullData、incrementalData、data。
+- 但这些状态的更新必须以后端推送为准，不要因为 HTTP 200 就直接改 UI。
+- 不要自己本地计时推进进度条，currentTime 只认 PLAY.currentTime。
+- 同一个页面实例内 sessionId 必须固定；多标签页不要复用。
+- 建议前端对控制命令做串行化处理：一个命令发出后，等对应的 WS 事件到了再允许下一个关键操作。因为当前协议里没有 requestId，只能靠时序收敛。
+
+几个关键建议
+- sendPlanDeduce 是“初始化并开始播放”，不是“普通恢复播放”。恢复播放应该走 startOrStop(flag=1)，见 PlanDeduceController.java。
+- 非初始化命令都用了 getOrCreate()，但真正拉起 worker 只在 start() 里做，见 PlanDeduceController.java 和 ScenarioTask.java。所以前端不要在未初始化时调用 skip、speed、startOrStop、fullSaveInterval，否则可能创建出“半初始化任务”。
+- 暂停建议优先用 startOrStop(flag=0)，不要优先用 speed=0。因为 speed=0 之后恢复播放时，后端会把速度兜底成 1，不会自动恢复到之前的 3 或 5，见 ScenarioTask.java。
+- 如果产品一定要把“倍速调成 0”当暂停，那前端就必须自己记住“上一次非 0 倍速”，恢复前先补一次 /plan/speed?speed=原倍速，再调 /plan/startOrStop?flag=1。
+
+下面补充“场景一”里前端发起请求后，后端具体会回什么内容。
+
+一、HTTP 响应
+这个项目里的这几个控制接口，HTTP 层基本都只返回状态码，不返回业务数据：
+
+1. GET /plan/sendPlanDeduce
+2. GET /plan/startOrStop
+3. GET /plan/skip
+4. GET /plan/speed
+5. GET /plan/fullSaveInterval
+6. GET /plan/destroy
+
+正常情况下：
+- HTTP 状态码是 200
+- 响应体为空
+
+异常情况下：
+- 例如重复初始化、非法参数
+- HTTP 状态码通常是 400
+- 响应体格式大致如下：
+
+{
+  "success": false,
+  "message": "错误说明"
+}
+
+所以前端不能指望 HTTP 响应体拿到播放状态、当前时间或数据快照，真正的数据要等 WebSocket。
+
+二、WebSocket 消息总格式
+后端 WebSocket 发回的是 JSON，对应 PushMessage。整体格式如下：
+
+{
+  "type": "INIT | PLAY | PAUSE | START | FINISH | SKIP | SPEED | INTERVAL | DESTROY | ERROR",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 0,
+  "fullTime": 0,
+  "speed": 1,
+  "running": true,
+  "fullData": [],
+  "incrementalData": [],
+  "data": [],
+  "message": "说明文案"
+}
+
+字段说明：
+- type：消息类型
+- dbName：当前任务所属数据库
+- sessionId：当前会话标识
+- currentTime：当前播放到的业务秒点
+- fullTime：当前快照对应的最近全量秒点
+- speed：当前倍速
+- running：当前是否处于播放态
+- fullData：全量快照数据，只在快照类消息里有值
+- incrementalData：增量数据，只在快照类消息里有值
+- data：后端直接合并好的结果，等于 fullData + incrementalData
+- message：说明文案，方便日志或联调查看
+
+注意：
+- INIT、PLAY、SKIP、INTERVAL 这类“快照类消息”通常带 fullData、incrementalData、data
+- PAUSE、START、FINISH、SPEED、DESTROY、ERROR 这类“状态类消息”通常只有基础状态字段和 message，不带数据数组
+
+三、场景一里每一步会收到什么
+
+步骤 1：第一次点击播放
+前端请求：
+GET /plan/sendPlanDeduce?dbName=plandeduce&skip=0&sessionId=s1
+
+HTTP 返回：
+- 200
+- 空响应体
+
+随后 WebSocket 至少会收到两类消息：
+1. INIT
+2. 后续持续的 PLAY
+
+INIT 示例格式：
+{
+  "type": "INIT",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 0,
+  "fullTime": 0,
+  "speed": 1,
+  "running": true,
+  "fullData": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 100,
+      "nextPos": 101,
+      "direction": 0,
+      "currentSpeed": 800,
+      "visible": 1,
+      "simTime": 0,
+      "targetId": 1,
+      "sourceType": "FULL"
+    }
+  ],
+  "incrementalData": [],
+  "data": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 100,
+      "nextPos": 101,
+      "direction": 0,
+      "currentSpeed": 800,
+      "visible": 1,
+      "simTime": 0,
+      "targetId": 1,
+      "sourceType": "FULL"
+    }
+  ],
+  "message": "当前时间 0 秒，返回第 0 秒全量数据"
+}
+
+说明：
+- 实际 fullData/data 里不止 1 条，示例只截了一条说明格式
+- 按当前样例数据，0 秒时会有多个棋子对象
+- INIT 用来给前端完整建模初始页面
+
+随后 PLAY 示例格式：
+{
+  "type": "PLAY",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 1,
+  "fullTime": 0,
+  "speed": 1,
+  "running": true,
+  "fullData": [],
+  "incrementalData": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 101,
+      "nextPos": 102,
+      "direction": 2,
+      "currentSpeed": 801,
+      "visible": 1,
+      "simTime": 1,
+      "targetId": 11,
+      "sourceType": "INCREMENT"
+    }
+  ],
+  "data": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 101,
+      "nextPos": 102,
+      "direction": 2,
+      "currentSpeed": 801,
+      "visible": 1,
+      "simTime": 1,
+      "targetId": 11,
+      "sourceType": "INCREMENT"
+    }
+  ],
+  "message": "当前时间 1 秒，返回第 1-1 秒增量数据"
+}
+
+说明：
+- 普通 PLAY 通常只带本次步长的增量
+- 如果 currentTime 正好落在全量间隔点，例如 10、20、30 秒，则 PLAY 可能只带 fullData，不带 incrementalData
+- 默认全量间隔是 600 秒；测试里常用 10 秒
+
+步骤 2：点击暂停
+前端请求：
+GET /plan/startOrStop?dbName=plandeduce&flag=0&sessionId=s1
+
+HTTP 返回：
+- 200
+- 空响应体
+
+WebSocket 会收到：
+{
+  "type": "PAUSE",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 5,
+  "fullTime": 0,
+  "speed": 1,
+  "running": false,
+  "message": "已暂停"
+}
+
+说明：
+- currentTime 是暂停时刻
+- 这条消息通常不带 fullData、incrementalData、data
+- 前端应该在收到 PAUSE 后再切 UI
+
+步骤 3：点击继续播放
+前端请求：
+GET /plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1
+
+HTTP 返回：
+- 200
+- 空响应体
+
+WebSocket 先收到 START：
+{
+  "type": "START",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 5,
+  "fullTime": 0,
+  "speed": 1,
+  "running": true,
+  "message": "已开始"
+}
+
+然后继续收到 PLAY：
+{
+  "type": "PLAY",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 6,
+  "fullTime": 0,
+  "speed": 1,
+  "running": true,
+  "fullData": [],
+  "incrementalData": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 106,
+      "nextPos": 107,
+      "direction": 12,
+      "currentSpeed": 806,
+      "visible": 1,
+      "simTime": 6,
+      "targetId": 61,
+      "sourceType": "INCREMENT"
+    }
+  ],
+  "data": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 106,
+      "nextPos": 107,
+      "direction": 12,
+      "currentSpeed": 806,
+      "visible": 1,
+      "simTime": 6,
+      "targetId": 61,
+      "sourceType": "INCREMENT"
+    }
+  ],
+  "message": "当前时间 6 秒，返回第 6-6 秒增量数据"
+}
+
+说明：
+- START 只表示“恢复了”
+- 真正的进度推进仍然看后续 PLAY.currentTime
+
+步骤 4：播放到结束
+当前项目在结束时的时序是：
+1. 最后一条 PLAY
+2. 一条 PAUSE
+3. 一条 FINISH
+
+最后一条 PLAY 示例：
+{
+  "type": "PLAY",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 1200,
+  "fullTime": 1200,
+  "speed": 3,
+  "running": true,
+  "fullData": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 100,
+      "nextPos": 101,
+      "direction": 240,
+      "currentSpeed": 800,
+      "visible": 1,
+      "simTime": 1200,
+      "targetId": 12001,
+      "sourceType": "FULL"
+    }
+  ],
+  "incrementalData": [],
+  "data": [
+    {
+      "roomObjectId": 1,
+      "objCode": "RED_ROOK",
+      "side": "RED",
+      "objName": "Red Rook Battalion",
+      "currentPos": 100,
+      "nextPos": 101,
+      "direction": 240,
+      "currentSpeed": 800,
+      "visible": 1,
+      "simTime": 1200,
+      "targetId": 12001,
+      "sourceType": "FULL"
+    }
+  ],
+  "message": "当前时间 1200 秒，返回第 1200 秒全量数据"
+}
+
+随后 PAUSE：
+{
+  "type": "PAUSE",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 1200,
+  "fullTime": 1200,
+  "speed": 3,
+  "running": false,
+  "message": "已暂停"
+}
+
+最后 FINISH：
+{
+  "type": "FINISH",
+  "dbName": "plandeduce",
+  "sessionId": "s1",
+  "currentTime": 1200,
+  "fullTime": 1200,
+  "speed": 3,
+  "running": false,
+  "message": "推演结束"
+}
+
+说明：
+- 前端不要只靠 currentTime >= fullTime 或 currentTime 到最大值来猜测结束
+- 必须以 FINISH 为准，把 finished 置为 true
+- 因为结束前会先收到一条 PAUSE，所以前端状态机会更稳妥的写法是：
+  收到 PAUSE 时只表示停止推进
+  收到 FINISH 时再表示本次任务真正结束
+
+四、数据数组里的对象格式
+fullData、incrementalData、data 三个数组里的元素，都是 RoomObjectHis 对象。字段很多，前端通常只需要消费一部分核心字段。常见格式如下：
+
+{
+  "roomObjectId": 1,
+  "scenarioId": 1001,
+  "roomId": 501,
+  "objCode": "RED_ROOK",
+  "side": "RED",
+  "objName": "Red Rook Battalion",
+  "currentPos": 100,
+  "nextPos": 101,
+  "direction": 0,
+  "currentSpeed": 800,
+  "moving": 0,
+  "stopping": 0,
+  "visible": 1,
+  "simTime": 0,
+  "targetId": 1,
+  "sourceType": "FULL"
+}
+
+补充说明：
+- sourceType 是后端补充的来源标识，通常是 FULL 或 INCREMENT
+- data 是后端直接拼好的 fullData + incrementalData
+- 如果前端只想直接渲染当前结果，可以优先消费 data
+- 如果前端自己要做更细的快照/增量逻辑，也可以分别消费 fullData 和 incrementalData
+
+五、前端在场景一里应该如何使用这些返回
+- 第一次收到 INIT：建立初始页面状态
+- 每次收到 PLAY：推进 currentTime，并刷新页面数据
+- 收到 PAUSE：只切到暂停态，不代表结束
+- 收到 START：只切到播放态，真正进度以后续 PLAY 为准
+- 收到 FINISH：设置 finished=true，禁用继续播放按钮，或者引导用户重新初始化
+
+六、这个场景里最推荐的前端判断规则
+- HTTP 200 只表示“命令提交成功”，不表示 UI 已完成切换
+- INIT、PLAY、SKIP、INTERVAL 负责数据刷新
+- START、PAUSE、SPEED、FINISH、DESTROY、ERROR 负责状态切换
+- 结束判断只认 FINISH
+- 当前是否在播放只认 running
+- 当前显示到哪一秒只认 currentTime
