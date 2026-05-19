@@ -1,6 +1,7 @@
 package com.example.plandeduce.service;
 
 import com.example.plandeduce.config.PlanDeduceProperties;
+import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.RoomObjectHis;
 import com.example.plandeduce.websocket.PlanDeducePush;
 
@@ -79,6 +80,11 @@ public class ScenarioTask {
      */
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     /**
+     * 是否已经向前端发送过首次 INIT 快照。
+     * sendPlanDeduce 只做初始化，不推数据；第一次真正开始播放时才发送 INIT。
+     */
+    private final AtomicBoolean initSnapshotPushed = new AtomicBoolean(false);
+    /**
      * 当前任务采用的全量快照间隔，单位秒。
      * 这个值直接影响 fullTime 的计算规则，以及“最近全量 + 之后增量”的组装方式。
      */
@@ -105,7 +111,7 @@ public class ScenarioTask {
 
     /**
      * 创建任务时只初始化内存状态，不立即启动定时器。
-     * 真正开始播放由 {@link #start(Integer, Integer)} 触发。
+     * 真正开始播放由 {@link #startOrStop(Integer)} 触发。
      */
     public ScenarioTask(String dbName,
                         String sessionId,
@@ -128,7 +134,7 @@ public class ScenarioTask {
      * startTime 用于决定从哪个业务秒点开始，intervalSeconds 用于覆盖默认全量快照间隔。
      * 当前初始化协议只要求先准备 0 点全量快照；后续整间隔全量点由数据服务按需构造。
      */
-    public synchronized void start(Integer startTime, Integer intervalSeconds) {
+    public synchronized void initialize(Integer startTime, Integer intervalSeconds) {
         if (startTime != null) {
             // 任何外部传入的时间都强制收敛到非负数，避免进度回退到非法区间。
             currentTime.set(Math.max(startTime, 0));
@@ -138,10 +144,8 @@ public class ScenarioTask {
             fullSaveIntervalSeconds.set(intervalSeconds);
         }
         initializeRuntimeState();
-        running.set(true);
-        // INIT 先推一次当前快照，确保前端在收到第一帧前就拿到准确状态和数据。
-        pushCurrentStateSnapshot("INIT");
-        ensureWorkerScheduled();
+        running.set(false);
+        initSnapshotPushed.set(false);
     }
 
     /**
@@ -244,9 +248,13 @@ public class ScenarioTask {
         }
         if (!initialized.get()) {
             initializeRuntimeState();
+            initSnapshotPushed.set(false);
+        }
+        if (!initSnapshotPushed.get()) {
             running.set(true);
-            // 首次通过“开始”进入播放时，也要先补一帧 INIT，确保前端先拿到基准快照。
+            // 首次通过“开始”进入播放时，先补一帧 INIT，确保前端先拿到基准快照。
             pushCurrentStateSnapshot("INIT");
+            initSnapshotPushed.set(true);
             ensureWorkerScheduled();
             return;
         }
@@ -300,6 +308,9 @@ public class ScenarioTask {
         // fullData 只取最近全量秒点最终态，incrementalData 只取该全量点之后每个对象最后一次生效补丁。
         List<RoomObjectHis> fullData = progressDataService.queryCachedFullData(dbName, fullSaveIntervalSeconds.get(), fullTime);
         List<RoomObjectHis> incrementalData = progressDataService.querySnapshotIncrementalData(dbName, fullTime, now);
+        List<FireJudgeResult> eventFullData = progressDataService.queryEventFullData(dbName, fullSaveIntervalSeconds.get(), fullTime);
+        List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(dbName, fullTime, now);
+        List<FireJudgeResult> eventData = mergeEventData(eventFullData, eventIncrementalData);
         // 业务层只负责提供快照原材料，具体的消息协议拼装和发送交给统一推送门面。
         pushService.pushSnapshot(
                 type,
@@ -311,7 +322,8 @@ public class ScenarioTask {
                 running.get(),
                 maxSimTime.get(),
                 fullData,
-                incrementalData
+                incrementalData,
+                eventData
         );
     }
 
@@ -330,6 +342,13 @@ public class ScenarioTask {
         List<RoomObjectHis> incrementalData = intervalPoint
                 ? Collections.emptyList()
                 : progressDataService.queryIncrementalData(dbName, previousTime, Math.min(previousTime + currentSpeed, nextTime));
+        List<FireJudgeResult> eventFullData = intervalPoint
+                ? progressDataService.queryEventFullData(dbName, interval, nextTime)
+                : Collections.emptyList();
+        List<FireJudgeResult> eventIncrementalData = intervalPoint
+                ? Collections.emptyList()
+                : progressDataService.queryEventIncrementalData(dbName, previousTime, nextTime);
+        List<FireJudgeResult> eventData = mergeEventData(eventFullData, eventIncrementalData);
         pushService.pushSnapshot(
                 "PLAY",
                 dbName,
@@ -340,8 +359,16 @@ public class ScenarioTask {
                 running.get(),
                 maxSimTime.get(),
                 fullData,
-                incrementalData
+                incrementalData,
+                eventData
         );
+    }
+
+    private List<FireJudgeResult> mergeEventData(List<FireJudgeResult> fullData, List<FireJudgeResult> incrementalData) {
+        List<FireJudgeResult> merged = new java.util.ArrayList<>(fullData.size() + incrementalData.size());
+        merged.addAll(fullData);
+        merged.addAll(incrementalData);
+        return merged;
     }
 
     /**

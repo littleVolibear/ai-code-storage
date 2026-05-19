@@ -1,5 +1,6 @@
 package com.example.plandeduce.websocket;
 
+import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.RoomObjectHis;
 import com.example.plandeduce.model.PushMessage;
 import org.springframework.stereotype.Component;
@@ -34,7 +35,8 @@ public class PlanDeducePush {
                              boolean running,
                              int maxSimTime,
                              List<RoomObjectHis> fullData,
-                             List<RoomObjectHis> incrementalData) {
+                             List<RoomObjectHis> incrementalData,
+                             List<FireJudgeResult> eventData) {
         // data 是给前端直接消费的完整结果，内部统一按”全量 + 增量”顺序拼装。
         List<RoomObjectHis> mergedData = new ArrayList<>(fullData.size() + incrementalData.size());
         mergedData.addAll(fullData);
@@ -45,6 +47,7 @@ public class PlanDeducePush {
         message.setFullData(Collections.emptyList());
         message.setIncrementalData(Collections.emptyList());
         message.setData(mergedData);
+        message.setEventData(eventData);
         message.setMessage(buildSnapshotMessage(currentTime, fullTime, incrementalData));
         webSocketHandler.sendToSession(sessionId, message);
     }

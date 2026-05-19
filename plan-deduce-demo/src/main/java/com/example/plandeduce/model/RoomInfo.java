@@ -1,0 +1,19 @@
+package com.example.plandeduce.model;
+
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+@Data
+@TableName("roomInfo")
+public class RoomInfo {
+    @TableId("id")
+    private Long id;
+    @TableField("title")
+    private String title;
+    @TableField("startTime")
+    private String startTime;
+    @TableField("roomId")
+    private String roomId;
+}

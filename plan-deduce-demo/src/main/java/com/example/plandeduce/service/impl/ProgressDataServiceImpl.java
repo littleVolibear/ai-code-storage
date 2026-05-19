@@ -4,8 +4,12 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean;
+import com.example.plandeduce.mapper.FireJudgeResultMapper;
 import com.example.plandeduce.mapper.RoomObjectHisMapper;
+import com.example.plandeduce.mapper.RoomInfoMapper;
+import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.RoomObjectHis;
+import com.example.plandeduce.model.RoomInfo;
 import com.example.plandeduce.service.ProgressDataService;
 import org.springframework.beans.BeanUtils;
 import org.mybatis.spring.SqlSessionTemplate;
@@ -13,10 +17,8 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.stereotype.Service;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -67,6 +69,8 @@ public class ProgressDataServiceImpl implements ProgressDataService {
 
     private final DataSourceProperties dataSourceProperties;
     private final Map<String, RoomObjectHisMapper> mapperCache = new ConcurrentHashMap<>();
+    private final Map<String, FireJudgeResultMapper> eventMapperCache = new ConcurrentHashMap<>();
+    private final Map<String, RoomInfoMapper> roomInfoMapperCache = new ConcurrentHashMap<>();
     /**
      * 按 dbName 缓存“棋子静态基础信息”。
      * key: dbName
@@ -92,6 +96,15 @@ public class ProgressDataServiceImpl implements ProgressDataService {
      * 3. 当前没有失效机制，默认底层数据在任务生命周期内不变。
      */
     private final Map<String, Map<Integer, List<RoomObjectHis>>> fullSnapshotCache = new ConcurrentHashMap<>();
+    /**
+     * 按“dbName + 全量间隔”缓存 FireJudgeResult 的全量秒点数据。
+     * key: dbName:intervalSeconds
+     * value: fullTime 秒点 -> 该秒点事件列表
+     * 作用：
+     * 1. 让事件表和 OBJ_ROOM_HIS 采用同一套“0 点预热 + 整间隔全量点缓存”的策略；
+     * 2. 避免每次命中全量点都直接回表查询。
+     */
+    private final Map<String, Map<Integer, List<FireJudgeResult>>> eventFullSnapshotCache = new ConcurrentHashMap<>();
 
     /**
      * 只注入基础数据源配置，真正的库连接和 Mapper 会按 dbName 懒加载创建。
@@ -118,6 +131,8 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         String cacheKey = buildFullSnapshotCacheKey(dbName, intervalSeconds);
         Map<Integer, List<RoomObjectHis>> cache = fullSnapshotCache.computeIfAbsent(cacheKey, key -> new ConcurrentHashMap<>());
         cache.computeIfAbsent(0, key -> buildZeroPointSnapshot(dbName));
+        Map<Integer, List<FireJudgeResult>> eventCache = eventFullSnapshotCache.computeIfAbsent(cacheKey, key -> new ConcurrentHashMap<>());
+        eventCache.computeIfAbsent(0, key -> buildZeroPointEventSnapshot(dbName));
     }
 
     /**
@@ -134,19 +149,6 @@ public class ProgressDataServiceImpl implements ProgressDataService {
                 .computeIfAbsent(buildFullSnapshotCacheKey(dbName, intervalSeconds), key -> new ConcurrentHashMap<>());
         List<RoomObjectHis> cachedData = cache.computeIfAbsent(simTime, key -> buildFullSnapshotAtPoint(dbName, intervalSeconds, simTime));
         return cachedData == null ? new ArrayList<>() : cloneDataList(cachedData, "FULL");
-    }
-
-    /**
-     * 查询某个全量秒点的数据。
-     * 例如 currentTime=13, fullTime=10 时，这里会返回“10 秒时刻的最终完整状态”。
-     * 注意：
-     * 1. 这个方法保留“从 0 点基座精确重建目标时刻”的语义，不走按间隔缓存的滚动递推链路；
-     * 2. 结果会按 sourceType=FULL 标记；
-     * 3. 返回前仍会克隆，避免调用方误改缓存内部对象。
-     */
-    @Override
-    public List<RoomObjectHis> queryFullData(String dbName, Integer simTime) {
-        return cloneDataList(buildFullSnapshotAtPointFromZero(dbName, simTime == null ? 0 : simTime), "FULL");
     }
 
     /**
@@ -202,18 +204,87 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     }
 
     @Override
+    public List<FireJudgeResult> queryEventFullData(String dbName, int intervalSeconds, Integer simTime) {
+        if (simTime == null || simTime < 0) {
+            return new ArrayList<>();
+        }
+        int targetTime = Math.max(simTime, 0);
+        preloadFullSnapshots(dbName, intervalSeconds);
+        Map<Integer, List<FireJudgeResult>> cache = eventFullSnapshotCache
+                .computeIfAbsent(buildFullSnapshotCacheKey(dbName, intervalSeconds), key -> new ConcurrentHashMap<>());
+        List<FireJudgeResult> cachedData = cache.computeIfAbsent(targetTime, key -> buildEventFullSnapshotAtPoint(dbName, intervalSeconds, targetTime));
+        return cloneEventDataList(cachedData);
+    }
+
+    @Override
+    public List<FireJudgeResult> queryEventIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
+        if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
+            return new ArrayList<>();
+        }
+        return queryEventRowsBetween(dbName, fromExclusive, toInclusive);
+    }
+
+    private List<FireJudgeResult> queryEventRowsAtTime(String dbName, int simTime) {
+        QueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>query()
+                .eq("ROOM_ID", validateDbName(dbName))
+                .eq("SIM_TIME", simTime)
+                .orderByAsc("SIM_TIME")
+                .orderByAsc("ID");
+        return getEventMapper(dbName).selectList(queryWrapper);
+    }
+
+    private List<FireJudgeResult> queryEventRowsBetween(String dbName, int fromExclusive, int toInclusive) {
+        QueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>query()
+                .eq("ROOM_ID", validateDbName(dbName))
+                .gt("SIM_TIME", fromExclusive)
+                .le("SIM_TIME", toInclusive)
+                .orderByAsc("SIM_TIME")
+                .orderByAsc("ID");
+        return getEventMapper(dbName).selectList(queryWrapper);
+    }
+
+    private List<FireJudgeResult> buildEventFullSnapshotAtPoint(String dbName, int intervalSeconds, int simTime) {
+        int targetTime = Math.max(simTime, 0);
+        if (targetTime == 0) {
+            return buildZeroPointEventSnapshot(dbName);
+        }
+        int interval = Math.max(intervalSeconds, 1);
+        int previousFullTime = Math.max(targetTime - interval, 0);
+        List<FireJudgeResult> previous = queryEventFullDataAtCachePoint(dbName, intervalSeconds, previousFullTime);
+        List<FireJudgeResult> merged = new ArrayList<>(previous.size());
+        merged.addAll(previous);
+        merged.addAll(queryEventIncrementalData(dbName, previousFullTime, targetTime));
+        return merged;
+    }
+
+    private List<FireJudgeResult> queryEventFullDataAtCachePoint(String dbName, int intervalSeconds, int simTime) {
+        preloadFullSnapshots(dbName, intervalSeconds);
+        Map<Integer, List<FireJudgeResult>> cache = eventFullSnapshotCache
+                .computeIfAbsent(buildFullSnapshotCacheKey(dbName, intervalSeconds), key -> new ConcurrentHashMap<>());
+        List<FireJudgeResult> cachedData = cache.computeIfAbsent(simTime, key -> buildEventFullSnapshotAtPoint(dbName, intervalSeconds, simTime));
+        return cloneEventDataList(cachedData);
+    }
+
+    private List<FireJudgeResult> buildZeroPointEventSnapshot(String dbName) {
+        return queryEventRowsAtTime(dbName, 0);
+    }
+
+    @Override
     public String queryRoomStartTime(String dbName) {
         String validatedDbName = validateDbName(dbName);
-        try (Connection connection = new DriverManagerDataSource(
-                buildJdbcUrl(validatedDbName),
-                dataSourceProperties.getUsername(),
-                dataSourceProperties.getPassword()
-        ).getConnection()) {
-            String startTime = queryRoomStartTimeByRoomId(connection, validatedDbName);
-            return startTime != null ? startTime : queryFirstRoomStartTime(connection);
-        } catch (Exception e) {
-            throw new IllegalStateException("查询 roomInfo.startTime 失败, dbName=" + validatedDbName, e);
+        QueryWrapper<RoomInfo> byRoomId = Wrappers.<RoomInfo>query()
+                .eq("roomId", validatedDbName)
+                .orderByAsc("id")
+                .last("LIMIT 1");
+        RoomInfo matched = getRoomInfoMapper(validatedDbName).selectOne(byRoomId);
+        if (matched != null) {
+            return matched.getStartTime();
         }
+        QueryWrapper<RoomInfo> first = Wrappers.<RoomInfo>query()
+                .orderByAsc("id")
+                .last("LIMIT 1");
+        RoomInfo firstRow = getRoomInfoMapper(validatedDbName).selectOne(first);
+        return firstRow == null ? null : firstRow.getStartTime();
     }
 
     /**
@@ -255,18 +326,6 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         int previousFullTime = Math.max(targetTime - interval, 0);
         Map<Integer, RoomObjectHis> mergedRows = indexByRoomObjectId(queryCachedFullData(dbName, intervalSeconds, previousFullTime));
         for (RoomObjectHis latestRow : queryLatestRowsByRoomObjectId(dbName, previousFullTime, targetTime)) {
-            mergedRows.put(latestRow.getRoomObjectId(), latestRow);
-        }
-        return withPieceBaseAndSourceType(sortByRoomObjectId(new ArrayList<>(mergedRows.values())), dbName, "FULL");
-    }
-
-    private List<RoomObjectHis> buildFullSnapshotAtPointFromZero(String dbName, int simTime) {
-        int targetTime = Math.max(simTime, 0);
-        if (targetTime == 0) {
-            return buildZeroPointSnapshot(dbName);
-        }
-        Map<Integer, RoomObjectHis> mergedRows = indexByRoomObjectId(buildZeroPointSnapshot(dbName));
-        for (RoomObjectHis latestRow : queryLatestRowsByRoomObjectId(dbName, 0, targetTime)) {
             mergedRows.put(latestRow.getRoomObjectId(), latestRow);
         }
         return withPieceBaseAndSourceType(sortByRoomObjectId(new ArrayList<>(mergedRows.values())), dbName, "FULL");
@@ -317,8 +376,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         QueryWrapper<RoomObjectHis> queryWrapper = Wrappers.<RoomObjectHis>query()
                 .select(DYNAMIC_STATE_COLUMNS)
                 .eq("SIM_TIME", simTime)
-                .orderByAsc("ROOM_OBJECT_ID")
-                .orderByAsc("TARGET_ID");
+                .orderByAsc("ROOM_OBJECT_ID");
         return getMapper(dbName).selectList(queryWrapper);
     }
 
@@ -380,6 +438,16 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return mapperCache.computeIfAbsent(validatedDbName, this::createMapper);
     }
 
+    private FireJudgeResultMapper getEventMapper(String dbName) {
+        String validatedDbName = validateDbName(dbName);
+        return eventMapperCache.computeIfAbsent(validatedDbName, this::createEventMapper);
+    }
+
+    private RoomInfoMapper getRoomInfoMapper(String dbName) {
+        String validatedDbName = validateDbName(dbName);
+        return roomInfoMapperCache.computeIfAbsent(validatedDbName, this::createRoomInfoMapper);
+    }
+
     /**
      * 动态创建某个库对应的 Mapper。
      * 当前项目使用内存 H2，因此这里通过改写 JDBC URL 的库名部分实现“动态切库”。
@@ -390,26 +458,54 @@ public class ProgressDataServiceImpl implements ProgressDataService {
      */
     private RoomObjectHisMapper createMapper(String dbName) {
         try {
-            DriverManagerDataSource dataSource = new DriverManagerDataSource();
-            dataSource.setDriverClassName(dataSourceProperties.getDriverClassName());
-            dataSource.setUrl(buildJdbcUrl(dbName));
-            dataSource.setUsername(dataSourceProperties.getUsername());
-            dataSource.setPassword(dataSourceProperties.getPassword());
-
-            MybatisSqlSessionFactoryBean factoryBean = new MybatisSqlSessionFactoryBean();
-            factoryBean.setDataSource(dataSource);
-            factoryBean.setTypeAliasesPackage("com.example.plandeduce.model");
-
-            MybatisConfiguration configuration = new MybatisConfiguration();
-            configuration.setMapUnderscoreToCamelCase(true);
-            configuration.addMapper(RoomObjectHisMapper.class);
-            factoryBean.setConfiguration(configuration);
-
-            SqlSessionTemplate sqlSessionTemplate = new SqlSessionTemplate(factoryBean.getObject());
-            return sqlSessionTemplate.getMapper(RoomObjectHisMapper.class);
+            return createMapper(dbName, RoomObjectHisMapper.class, "创建 MyBatis-Plus Mapper 失败");
         } catch (Exception e) {
             throw new IllegalStateException("创建 MyBatis-Plus Mapper 失败, dbName=" + dbName, e);
         }
+    }
+
+    private FireJudgeResultMapper createEventMapper(String dbName) {
+        try {
+            return createMapper(dbName, FireJudgeResultMapper.class, "创建 FireJudgeResult Mapper 失败");
+        } catch (Exception e) {
+            throw new IllegalStateException("创建 FireJudgeResult Mapper 失败, dbName=" + dbName, e);
+        }
+    }
+
+    private RoomInfoMapper createRoomInfoMapper(String dbName) {
+        try {
+            return createMapper(dbName, RoomInfoMapper.class, "创建 RoomInfo Mapper 失败");
+        } catch (Exception e) {
+            throw new IllegalStateException("创建 RoomInfo Mapper 失败, dbName=" + dbName, e);
+        }
+    }
+
+    private <T> T createMapper(String dbName, Class<T> mapperClass, String errorMessage) throws Exception {
+        SqlSessionTemplate sqlSessionTemplate = createSqlSessionTemplate(dbName, mapperClass);
+        try {
+            return sqlSessionTemplate.getMapper(mapperClass);
+        } catch (Exception e) {
+            throw new IllegalStateException(errorMessage + ", dbName=" + dbName, e);
+        }
+    }
+
+    private SqlSessionTemplate createSqlSessionTemplate(String dbName, Class<?>... mapperClasses) throws Exception {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName(dataSourceProperties.getDriverClassName());
+        dataSource.setUrl(buildJdbcUrl(dbName));
+        dataSource.setUsername(dataSourceProperties.getUsername());
+        dataSource.setPassword(dataSourceProperties.getPassword());
+
+        MybatisSqlSessionFactoryBean factoryBean = new MybatisSqlSessionFactoryBean();
+        factoryBean.setDataSource(dataSource);
+        factoryBean.setTypeAliasesPackage("com.example.plandeduce.model");
+
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        Arrays.stream(mapperClasses).forEach(configuration::addMapper);
+        factoryBean.setConfiguration(configuration);
+
+        return new SqlSessionTemplate(factoryBean.getObject());
     }
 
     /**
@@ -473,28 +569,6 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return validateDbName(dbName) + ":" + intervalSeconds;
     }
 
-    private String queryRoomStartTimeByRoomId(Connection connection, String roomId) throws Exception {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT startTime FROM roomInfo WHERE roomId = ? ORDER BY id LIMIT 1")) {
-            statement.setString(1, roomId);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    return resultSet.getString("startTime");
-                }
-                return null;
-            }
-        }
-    }
-
-    private String queryFirstRoomStartTime(Connection connection) throws Exception {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT startTime FROM roomInfo ORDER BY id LIMIT 1");
-             ResultSet resultSet = statement.executeQuery()) {
-            if (resultSet.next()) {
-                return resultSet.getString("startTime");
-            }
-            return null;
-        }
-    }
-
     /**
      * 克隆缓存中的全量快照列表，避免调用方直接修改缓存对象。
      * 注意：
@@ -508,6 +582,16 @@ public class ProgressDataServiceImpl implements ProgressDataService {
             RoomObjectHis clone = new RoomObjectHis();
             BeanUtils.copyProperties(item, clone);
             clone.setSourceType(sourceType);
+            clones.add(clone);
+        }
+        return clones;
+    }
+
+    private List<FireJudgeResult> cloneEventDataList(List<FireJudgeResult> dataList) {
+        List<FireJudgeResult> clones = new ArrayList<>(dataList.size());
+        for (FireJudgeResult item : dataList) {
+            FireJudgeResult clone = new FireJudgeResult();
+            BeanUtils.copyProperties(item, clone);
             clones.add(clone);
         }
         return clones;

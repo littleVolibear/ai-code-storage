@@ -1,5 +1,6 @@
 package com.example.plandeduce.service;
 
+import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.RoomObjectHis;
 
 import java.util.List;
@@ -18,11 +19,6 @@ public interface ProgressDataService {
     List<RoomObjectHis> queryCachedFullData(String dbName, int intervalSeconds, int simTime);
 
     /**
-     * 查询指定秒点的完整全量快照。
-     */
-    List<RoomObjectHis> queryFullData(String dbName, Integer simTime);
-
-    /**
      * 查询播放推进时使用的原始增量数据。
      * 保留区间内所有变化记录，供 PLAY 消息按步长逐帧下发。
      */
@@ -38,6 +34,16 @@ public interface ProgressDataService {
      * 查询当前库可播放到的最大业务秒点。
      */
     Integer queryMaxSimTime(String dbName);
+
+    /**
+     * 查询某个全量秒点上的事件数据。
+     */
+    List<FireJudgeResult> queryEventFullData(String dbName, int intervalSeconds, Integer simTime);
+
+    /**
+     * 查询事件增量数据，区间语义为 (fromExclusive, toInclusive]。
+     */
+    List<FireJudgeResult> queryEventIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive);
 
     /**
      * 查询当前推演任务的开始时间。

@@ -25,8 +25,8 @@ public class PlanDeduceController {
     }
 
     /**
-     * 初始化任务并开始播放。
-     * 第一次进入页面或 destroy 后重新开始时，前端应优先调用这个接口。
+     * 初始化任务，但不开始播放。
+     * 前端拿到时间范围后，需要再调用 startOrStop(flag=1) 才会真正开始推送 WebSocket 数据。
      */
     @GetMapping("/sendPlanDeduce")
     public InitProgressResponse sendPlanDeduce(@NotNull(message = "库名不能为空") @RequestParam String dbName,
@@ -38,7 +38,7 @@ public class PlanDeduceController {
             throw new IllegalArgumentException("当前任务正在执行，请先暂停或销毁后再初始化");
         }
         ScenarioTask task = existingTask != null ? existingTask : taskManager.getOrCreate(dbName, sessionId);
-        task.start(skip, null);
+        task.initialize(skip, null);
         return new InitProgressResponse(dbName, sessionId, progressDataService.queryRoomStartTime(dbName), task.getMaxSimTime());
     }
 
