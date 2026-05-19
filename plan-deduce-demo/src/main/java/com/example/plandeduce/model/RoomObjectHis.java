@@ -94,4 +94,6 @@ public class RoomObjectHis {
     private String airDefenseRange; // 防空范围
     @TableField(exist = false)
     private String sourceType; // 快照来源：FULL 或 INCREMENT
+    @TableField(exist = false)
+    private Integer realTime; // 记录对应的真实时间，当前取自 simTime
 }

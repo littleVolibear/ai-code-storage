@@ -54,10 +54,15 @@ public class ScenarioTask {
      * 当前播放到的业务秒点。
      * 注意：
      * 1. 这是整个任务最核心的时间游标；
-     * 2. PLAY/SKIP/PAUSE/START 等消息里的 currentTime 都以它为准；
+     * 2. 内部所有业务快照查询都以它为准；
      * 3. 播放中的增量区间通常基于“旧 currentTime -> 新 currentTime”计算。
      */
     private final AtomicInteger currentTime = new AtomicInteger(0);
+    /**
+     * 当前真实时间轴位置。
+     * 这个值用于回给前端，不受倍速跳跃影响：1 倍速时与 currentTime 一致，高倍速时按每个 tick 仅前进一步。
+     */
+    private final AtomicInteger realTime = new AtomicInteger(0);
     /**
      * 当前倍速。
      * 注意：
@@ -137,7 +142,9 @@ public class ScenarioTask {
     public synchronized void initialize(Integer startTime, Integer intervalSeconds) {
         if (startTime != null) {
             // 任何外部传入的时间都强制收敛到非负数，避免进度回退到非法区间。
-            currentTime.set(Math.max(startTime, 0));
+            int safeStartTime = Math.max(startTime, 0);
+            currentTime.set(safeStartTime);
+            realTime.set(safeStartTime);
         }
         if (intervalSeconds != null && intervalSeconds > 0) {
             // 初始化时允许前端覆盖默认全量间隔，后续 fullTime 计算都以这个值为准。
@@ -175,6 +182,7 @@ public class ScenarioTask {
             // 播放推进只按 speed 叠加业务秒数，真实 tick 节奏由 tick-interval-ms 决定。
             int next = Math.min(now + currentSpeed, maxSimTimeValue);
             currentTime.set(next);
+            realTime.set(Math.min(realTime.get() + 1, maxSimTimeValue));
             pushPlaySnapshot(now, next, currentSpeed);
             if (next >= maxSimTimeValue) {
                 // 最后一帧既要推送最终数据，也要补发结束状态，方便前端切到 finished。
@@ -338,6 +346,7 @@ public class ScenarioTask {
                 type,
                 dbName,
                 sessionId,
+                realTime.get(),
                 now,
                 fullTime,
                 speed.get(),
@@ -375,6 +384,7 @@ public class ScenarioTask {
                 "PLAY",
                 dbName,
                 sessionId,
+                realTime.get(),
                 nextTime,
                 fullTime,
                 speed.get(),
@@ -403,6 +413,7 @@ public class ScenarioTask {
             return false;
         }
         currentTime.set(targetTime);
+        realTime.set(targetTime);
         pushCurrentStateSnapshot("SKIP");
         return true;
     }
@@ -457,6 +468,7 @@ public class ScenarioTask {
                 type,
                 dbName,
                 sessionId,
+                realTime.get(),
                 currentTime.get(),
                 fullTime,
                 speed.get(),

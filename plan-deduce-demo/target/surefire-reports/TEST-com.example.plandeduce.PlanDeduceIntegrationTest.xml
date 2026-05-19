@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.example.plandeduce.PlanDeduceIntegrationTest" time="73.35" tests="22" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.example.plandeduce.PlanDeduceIntegrationTest" time="73.724" tests="22" errors="0" skipped="0" failures="0">
   <properties>
     <property name="http.proxyHost" value="127.0.0.1"/>
     <property name="java.specification.version" value="21"/>
@@ -14,7 +14,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="CN"/>
     <property name="sun.boot.library.path" value="/usr/local/Cellar/openjdk@21/21.0.10/libexec/openjdk.jdk/Contents/Home/lib"/>
-    <property name="sun.java.command" value="/Users/pro/Downloads/plan-deduce-demo/target/surefire/surefirebooter8665338929528243195.jar /Users/pro/Downloads/plan-deduce-demo/target/surefire 2026-05-19T21-23-14_774-jvmRun1 surefire6368254957519482053tmp surefire_04740834092710437567tmp"/>
+    <property name="sun.java.command" value="/Users/pro/Downloads/plan-deduce-demo/target/surefire/surefirebooter10925010515876402948.jar /Users/pro/Downloads/plan-deduce-demo/target/surefire 2026-05-19T23-24-21_475-jvmRun1 surefire7200566949780694980tmp surefire_017612510082969610842tmp"/>
     <property name="http.nonProxyHosts" value="captive.apple.com|*.captive.apple.com|192.168.1.1.dns|*.192.168.1.1.dns|localhost|*.localhost|10.0.0.0/8|*.10.0.0.0/8|local|*.local|172.16.0.0/12|*.172.16.0.0/12|240e:40:8000::11.dns|*.240e:40:8000::11.dns|240e:40:8000::10.dns|*.240e:40:8000::10.dns|198.18.0.0/15|*.198.18.0.0/15|192.168.0.0/16|*.192.168.0.0/16"/>
     <property name="jdk.debug" value="release"/>
     <property name="test" value="PlanDeduceIntegrationTest"/>
@@ -33,7 +33,7 @@
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="apple.awt.application.name" value="ForkedBooter"/>
-    <property name="surefire.real.class.path" value="/Users/pro/Downloads/plan-deduce-demo/target/surefire/surefirebooter8665338929528243195.jar"/>
+    <property name="surefire.real.class.path" value="/Users/pro/Downloads/plan-deduce-demo/target/surefire/surefirebooter10925010515876402948.jar"/>
     <property name="user.script" value="Hans"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="ftp.nonProxyHosts" value="captive.apple.com|*.captive.apple.com|192.168.1.1.dns|*.192.168.1.1.dns|localhost|*.localhost|10.0.0.0/8|*.10.0.0.0/8|local|*.local|172.16.0.0/12|*.172.16.0.0/12|240e:40:8000::11.dns|*.240e:40:8000::11.dns|240e:40:8000::10.dns|*.240e:40:8000::10.dns|198.18.0.0/15|*.198.18.0.0/15|192.168.0.0/16|*.192.168.0.0/16"/>
@@ -64,26 +64,26 @@
     <property name="java.class.version" value="65.0"/>
     <property name="http.proxyPort" value="1082"/>
   </properties>
-  <testcase name="shouldKeepMultipleDbNamesIsolated" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="2.405"/>
-  <testcase name="shouldReturnFullAndCumulativeIncrementalDataWhenSkippingToThirteen" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.518"/>
-  <testcase name="shouldHandlePauseThenSwitchToThreeXThenPauseStartPauseSequence" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="2.074"/>
-  <testcase name="shouldHandleOneXForFiveSecondsThenPauseSwitchToFiveXAndRunToTwentySeconds" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="2.308"/>
-  <testcase name="shouldReturnProgressBarStartAndEndTimeWhenInitializing" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.375"/>
-  <testcase name="shouldHandleRepeatedThreeXPauseResumeCyclesUntilTwentyMinutesFinish" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="49.719"/>
-  <testcase name="shouldSupportDocumentedScenarioTwoFlow" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.231"/>
-  <testcase name="shouldHonorCustomSpeedPauseAndSkip" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.166"/>
-  <testcase name="shouldRejectReinitializingTaskWhileItIsExecuting" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.385"/>
-  <testcase name="shouldKeepMultipleSessionsIsolated" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.223"/>
-  <testcase name="shouldUseTwentyMinuteFullSnapshotWhenIntervalChanges" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.48"/>
-  <testcase name="shouldSendFinishWhenPlaybackReachesEnd" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.857"/>
-  <testcase name="shouldStartPauseAndResumeAtOneX" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.896"/>
-  <testcase name="shouldReleaseResourcesAfterDestroy" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.215"/>
-  <testcase name="shouldHandleRapidSkipSpeedPauseCombinations" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.956"/>
-  <testcase name="shouldReturnFullAndIncrementalDataWhenSkippingToEleven" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.479"/>
-  <testcase name="shouldSupportDocumentedScenarioThreeFlow" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.007"/>
-  <testcase name="shouldRejectInvalidFullSaveInterval" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.01"/>
-  <testcase name="shouldHandleOneXRunForTwoSecondsThenPauseChangeToThreeXStartAndPause" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.737"/>
-  <testcase name="shouldPauseWhenSpeedIsZero" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.842"/>
-  <testcase name="shouldClampNegativeSkipToZero" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.475"/>
-  <testcase name="shouldAcceptControlCommandsWithoutWebSocketConnection" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.009"/>
+  <testcase name="shouldKeepMultipleDbNamesIsolated" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="2.324"/>
+  <testcase name="shouldReturnFullAndCumulativeIncrementalDataWhenSkippingToThirteen" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.563"/>
+  <testcase name="shouldHandlePauseThenSwitchToThreeXThenPauseStartPauseSequence" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="2.076"/>
+  <testcase name="shouldHandleOneXForFiveSecondsThenPauseSwitchToFiveXAndRunToTwentySeconds" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="2.294"/>
+  <testcase name="shouldReturnProgressBarStartAndEndTimeWhenInitializing" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.376"/>
+  <testcase name="shouldHandleRepeatedThreeXPauseResumeCyclesUntilTwentyMinutesFinish" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="49.774"/>
+  <testcase name="shouldSupportDocumentedScenarioTwoFlow" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.235"/>
+  <testcase name="shouldHonorCustomSpeedPauseAndSkip" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.174"/>
+  <testcase name="shouldRejectReinitializingTaskWhileItIsExecuting" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.394"/>
+  <testcase name="shouldKeepMultipleSessionsIsolated" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.226"/>
+  <testcase name="shouldUseTwentyMinuteFullSnapshotWhenIntervalChanges" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.489"/>
+  <testcase name="shouldSendFinishWhenPlaybackReachesEnd" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.854"/>
+  <testcase name="shouldStartPauseAndResumeAtOneX" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.898"/>
+  <testcase name="shouldReleaseResourcesAfterDestroy" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.228"/>
+  <testcase name="shouldHandleRapidSkipSpeedPauseCombinations" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.975"/>
+  <testcase name="shouldReturnFullAndIncrementalDataWhenSkippingToEleven" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.486"/>
+  <testcase name="shouldSupportDocumentedScenarioThreeFlow" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.018"/>
+  <testcase name="shouldRejectInvalidFullSaveInterval" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.011"/>
+  <testcase name="shouldHandleOneXRunForTwoSecondsThenPauseChangeToThreeXStartAndPause" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="1.754"/>
+  <testcase name="shouldPauseWhenSpeedIsZero" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.871"/>
+  <testcase name="shouldClampNegativeSkipToZero" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.485"/>
+  <testcase name="shouldAcceptControlCommandsWithoutWebSocketConnection" classname="com.example.plandeduce.PlanDeduceIntegrationTest" time="0.024"/>
 </testsuite>

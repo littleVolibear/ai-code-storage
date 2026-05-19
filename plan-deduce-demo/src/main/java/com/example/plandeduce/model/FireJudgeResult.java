@@ -16,4 +16,6 @@ public class FireJudgeResult {
     private Integer physicalTime; // 仿真时间
     @TableField("SIM_TIME")
     private Integer simTime; // 事件对应的业务秒点
+    @TableField(exist = false)
+    private Integer realTime; // 记录对应的真实时间，当前取自 simTime
 }

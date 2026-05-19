@@ -59,10 +59,10 @@ plandeduce
 
 ### 2.3 时间单位
 
-当前系统里的业务时间统一按秒处理：
+当前系统里的推演时间统一按秒处理：
 
 - `skip`
-- `currentTime`
+- `deduceTime`
 - `fullTime`
 - `fullSaveIntervalSeconds`
 

@@ -29,7 +29,8 @@ public class PlanDeducePush {
     public void pushSnapshot(String type,
                              String dbName,
                              String sessionId,
-                             int currentTime,
+                             int realTime,
+                             int deduceTime,
                              int fullTime,
                              int speed,
                              boolean running,
@@ -38,17 +39,20 @@ public class PlanDeducePush {
                              List<RoomObjectHis> incrementalData,
                              List<FireJudgeResult> eventData) {
         // data 是给前端直接消费的完整结果，内部统一按”全量 + 增量”顺序拼装。
+        hydratePieceRealTime(fullData, realTime);
+        hydratePieceRealTime(incrementalData, realTime);
+        hydrateEventRealTime(eventData, realTime);
         List<RoomObjectHis> mergedData = new ArrayList<>(fullData.size() + incrementalData.size());
         mergedData.addAll(fullData);
         mergedData.addAll(incrementalData);
 
         // 所有快照类事件沿用同一份协议结构，避免 INIT/PLAY/SKIP/INTERVAL 的字段漂移。
-        PushMessage message = buildBaseMessage(type, dbName, sessionId, currentTime, fullTime, speed, running, maxSimTime);
+        PushMessage message = buildBaseMessage(type, dbName, sessionId, realTime, deduceTime, fullTime, speed, running, maxSimTime);
         message.setFullData(Collections.emptyList());
         message.setIncrementalData(Collections.emptyList());
         message.setData(mergedData);
         message.setEventData(eventData);
-        message.setMessage(buildSnapshotMessage(currentTime, fullTime, incrementalData));
+        message.setMessage(buildSnapshotMessage(realTime, deduceTime, fullTime, incrementalData));
         webSocketHandler.sendToSession(sessionId, message);
     }
 
@@ -59,14 +63,15 @@ public class PlanDeducePush {
     public void pushStatus(String type,
                            String dbName,
                            String sessionId,
-                           int currentTime,
+                           int realTime,
+                           int deduceTime,
                            Integer fullTime,
                            int speed,
                            boolean running,
                            int maxSimTime,
                            String text) {
-        // 状态类事件同样保留 currentTime/fullTime/speed/running，方便前端只维护一套状态同步逻辑。
-        PushMessage message = buildBaseMessage(type, dbName, sessionId, currentTime, fullTime, speed, running, maxSimTime);
+        // 状态类事件同样保留 realTime/fullTime/speed/running，方便前端只维护一套状态同步逻辑。
+        PushMessage message = buildBaseMessage(type, dbName, sessionId, realTime, deduceTime, fullTime, speed, running, maxSimTime);
         message.setMessage(text);
         webSocketHandler.sendToSession(sessionId, message);
     }
@@ -77,7 +82,8 @@ public class PlanDeducePush {
     private PushMessage buildBaseMessage(String type,
                                          String dbName,
                                          String sessionId,
-                                         int currentTime,
+                                         int realTime,
+                                         int deduceTime,
                                          Integer fullTime,
                                          int speed,
                                          boolean running,
@@ -86,7 +92,8 @@ public class PlanDeducePush {
         message.setType(type);
         message.setDbName(dbName);
         message.setSessionId(sessionId);
-        message.setCurrentTime(currentTime);
+        message.setRealTime(realTime);
+        message.setDeduceTime(deduceTime);
         message.setFullTime(fullTime);
         message.setSpeed(speed);
         message.setRunning(running);
@@ -97,14 +104,26 @@ public class PlanDeducePush {
     /**
      * 统一生成快照类消息的说明文案，方便前端日志和联调时直观看出数据组成。
      */
-    private String buildSnapshotMessage(int currentTime, int fullTime, List<RoomObjectHis> incrementalData) {
-        if (incrementalData.isEmpty() && fullTime == currentTime) {
-            return "当前时间 " + currentTime + " 秒，返回第 " + fullTime + " 秒全量数据";
+    private String buildSnapshotMessage(int realTime, int deduceTime, int fullTime, List<RoomObjectHis> incrementalData) {
+        if (incrementalData.isEmpty() && fullTime == deduceTime) {
+            return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + fullTime + " 秒全量数据";
         }
         if (incrementalData.isEmpty()) {
-            return "当前时间 " + currentTime + " 秒，返回第 " + fullTime + " 秒全量数据";
+            return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + fullTime + " 秒全量数据";
         }
         int startTime = incrementalData.get(0).getSimTime() == null ? (fullTime + 1) : incrementalData.get(0).getSimTime();
-        return "当前时间 " + currentTime + " 秒，返回第 " + startTime + "-" + currentTime + " 秒增量数据";
+        return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + startTime + "-" + deduceTime + " 秒增量数据";
+    }
+
+    private void hydratePieceRealTime(List<RoomObjectHis> data, int realTime) {
+        for (RoomObjectHis row : data) {
+            row.setRealTime(realTime);
+        }
+    }
+
+    private void hydrateEventRealTime(List<FireJudgeResult> data, int realTime) {
+        for (FireJudgeResult row : data) {
+            row.setRealTime(realTime);
+        }
     }
 }
