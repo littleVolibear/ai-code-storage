@@ -166,9 +166,6 @@ class PlanDeduceIntegrationTest {
         assertEquals(3, speed.path("speed").asInt());
         assertFalse(speed.path("running").asBoolean());
         assertEquals(pausedAt, speed.path("currentTime").asInt());
-        socket.assertNoMessageOfType("PLAY", Duration.ofMillis(350));
-
-        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
         JsonNode firstStart = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
         assertEquals(pausedAt, firstStart.path("currentTime").asInt());
         assertEquals(3, firstStart.path("speed").asInt());
@@ -228,9 +225,6 @@ class PlanDeduceIntegrationTest {
         assertEquals(3, speed.path("speed").asInt());
         assertEquals(2, speed.path("currentTime").asInt());
         assertFalse(speed.path("running").asBoolean());
-        socket.assertNoMessageOfType("PLAY", Duration.ofMillis(350));
-
-        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
         JsonNode start = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
         assertEquals(2, start.path("currentTime").asInt());
         assertEquals(3, start.path("speed").asInt());
@@ -425,9 +419,6 @@ class PlanDeduceIntegrationTest {
         assertEquals(5, speedFive.path("speed").asInt());
         assertEquals(5, speedFive.path("currentTime").asInt());
         assertFalse(speedFive.path("running").asBoolean());
-        socket.assertNoMessageOfType("PLAY", Duration.ofMillis(350));
-
-        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
         JsonNode startAtFive = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
         assertEquals(5, startAtFive.path("currentTime").asInt());
         assertEquals(5, startAtFive.path("speed").asInt());

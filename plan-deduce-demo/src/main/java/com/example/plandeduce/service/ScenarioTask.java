@@ -196,6 +196,17 @@ public class ScenarioTask {
     }
 
     /**
+     * 跳点后强制进入播放态。
+     * 如果任务此前尚未开始，会先补 INIT；如果已经暂停过，会先发 START，再由 worker 消费 SKIP。
+     */
+    public synchronized void skipAndResume(Integer targetTime) {
+        skip(targetTime);
+        if (!running.get()) {
+            resume();
+        }
+    }
+
+    /**
      * 调整播放倍速。
      * 重要规则：
      * 1. speed=0 等价于暂停；
@@ -213,6 +224,17 @@ public class ScenarioTask {
             running.set(true);
         }
         pushStatus("SPEED", calculateNearestFullTime(currentTime.get()), "倍速已设置为 " + speed.get());
+    }
+
+    /**
+     * 调速后强制进入播放态。
+     * 先发 SPEED，再根据当前初始化状态补 INIT 或 START，确保前端看到“调速后自动开始播放”。
+     */
+    public synchronized void setSpeedAndResume(Integer newSpeed) {
+        setSpeed(newSpeed);
+        if (newSpeed != null && newSpeed > 0 && !running.get()) {
+            resume();
+        }
     }
 
     /**

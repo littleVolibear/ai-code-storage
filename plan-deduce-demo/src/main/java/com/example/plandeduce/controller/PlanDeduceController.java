@@ -50,7 +50,7 @@ public class PlanDeduceController {
                      @NotNull(message = "跳转时间不能为空") @RequestParam Integer skip,
                      @RequestParam(defaultValue = "default") String sessionId) {
         ScenarioTask task = taskManager.getOrCreate(dbName, sessionId);
-        task.skip(skip);
+        task.skipAndResume(skip);
     }
 
     /**
@@ -63,7 +63,7 @@ public class PlanDeduceController {
                       @RequestParam(defaultValue = "default") String sessionId,
                       @RequestParam(required = false) String uuid) {
         ScenarioTask task = taskManager.getOrCreate(dbName, sessionId);
-        task.setSpeed(speed);
+        task.setSpeedAndResume(speed);
     }
 
     /**

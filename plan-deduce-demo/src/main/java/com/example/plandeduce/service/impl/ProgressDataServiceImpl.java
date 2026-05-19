@@ -1,6 +1,7 @@
 package com.example.plandeduce.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean;
@@ -225,21 +226,21 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     }
 
     private List<FireJudgeResult> queryEventRowsAtTime(String dbName, int simTime) {
-        QueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>query()
-                .eq("ROOM_ID", validateDbName(dbName))
-                .eq("SIM_TIME", simTime)
-                .orderByAsc("SIM_TIME")
-                .orderByAsc("ID");
+        LambdaQueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>lambdaQuery()
+                .eq(FireJudgeResult::getRoomId, validateDbName(dbName))
+                .eq(FireJudgeResult::getSimTime, simTime)
+                .orderByAsc(FireJudgeResult::getSimTime)
+                .orderByAsc(FireJudgeResult::getId);
         return getEventMapper(dbName).selectList(queryWrapper);
     }
 
     private List<FireJudgeResult> queryEventRowsBetween(String dbName, int fromExclusive, int toInclusive) {
-        QueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>query()
-                .eq("ROOM_ID", validateDbName(dbName))
-                .gt("SIM_TIME", fromExclusive)
-                .le("SIM_TIME", toInclusive)
-                .orderByAsc("SIM_TIME")
-                .orderByAsc("ID");
+        LambdaQueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>lambdaQuery()
+                .eq(FireJudgeResult::getRoomId, validateDbName(dbName))
+                .gt(FireJudgeResult::getSimTime, fromExclusive)
+                .le(FireJudgeResult::getSimTime, toInclusive)
+                .orderByAsc(FireJudgeResult::getSimTime)
+                .orderByAsc(FireJudgeResult::getId);
         return getEventMapper(dbName).selectList(queryWrapper);
     }
 
@@ -272,16 +273,16 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     @Override
     public String queryRoomStartTime(String dbName) {
         String validatedDbName = validateDbName(dbName);
-        QueryWrapper<RoomInfo> byRoomId = Wrappers.<RoomInfo>query()
-                .eq("roomId", validatedDbName)
-                .orderByAsc("id")
+        LambdaQueryWrapper<RoomInfo> byRoomId = Wrappers.<RoomInfo>lambdaQuery()
+                .eq(RoomInfo::getRoomId, validatedDbName)
+                .orderByAsc(RoomInfo::getId)
                 .last("LIMIT 1");
         RoomInfo matched = getRoomInfoMapper(validatedDbName).selectOne(byRoomId);
         if (matched != null) {
             return matched.getStartTime();
         }
-        QueryWrapper<RoomInfo> first = Wrappers.<RoomInfo>query()
-                .orderByAsc("id")
+        LambdaQueryWrapper<RoomInfo> first = Wrappers.<RoomInfo>lambdaQuery()
+                .orderByAsc(RoomInfo::getId)
                 .last("LIMIT 1");
         RoomInfo firstRow = getRoomInfoMapper(validatedDbName).selectOne(first);
         return firstRow == null ? null : firstRow.getStartTime();
