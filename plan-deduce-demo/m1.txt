@@ -1,0 +1,38 @@
+上次修改涉及的文件和方法如下：
+
+1. 文件：src/main/java/com/example/plandeduce/service/ScenarioTask.java
+   修改的方法：
+   - resume()
+     变更内容：
+     在恢复播放时增加结束态判断；如果 currentTime >= maxSimTime，则先重置重播状态，再走 INIT -> PLAY 的正常启动流程。
+
+   新增的方法：
+   - resetForReplay()
+     作用：
+     在播放已经结束后再次点击播放时，将 currentTime 和 realTime 重置为 0，同时重置 running 和 initSnapshotPushed，确保任务可以从头重播。
+
+2. 文件：src/test/java/com/example/plandeduce/service/ScenarioTaskReplayTest.java
+   新增的测试方法：
+   - shouldReplayFromStartWhenResumeIsCalledAfterFinish()
+     作用：
+     验证任务在结束态再次调用开始后，会从 0 发出 INIT，并在下一次推进时正常发送 PLAY。
+
+   新增的辅助方法：
+   - invokeTickSafely(ScenarioTask task)
+     作用：
+     通过反射调用 ScenarioTask 的 tickSafely()，用于测试播放推进。
+
+   新增的测试辅助类及其方法：
+   - CapturingWebSocketHandler.sendToSession(String sessionId, Object payload)
+   - CapturingWebSocketHandler.singleMessage()
+   - CapturingWebSocketHandler.lastMessage()
+   - FakeProgressDataService.preloadFullSnapshots(String dbName, int intervalSeconds)
+   - FakeProgressDataService.queryCachedFullData(String dbName, int intervalSeconds, int simTime)
+   - FakeProgressDataService.queryIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive)
+   - FakeProgressDataService.querySnapshotIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive)
+   - FakeProgressDataService.queryMaxSimTime(String dbName)
+   - FakeProgressDataService.queryEventFullData(String dbName, int intervalSeconds, Integer simTime)
+   - FakeProgressDataService.queryEventIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive)
+   - FakeProgressDataService.queryRoomStartTime(String dbName)
+     作用：
+     为重播单测提供最小依赖桩和消息捕获能力。

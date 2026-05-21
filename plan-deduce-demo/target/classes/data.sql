@@ -1,7 +1,7 @@
-INSERT INTO roomInfo(id, title, startTime, roomId)
+INSERT INTO ROOM_INFO(id, title, startTime, roomId)
 VALUES (1, '示例推演', '2026-01-01 00:00:00', 'plandeduce');
 
-INSERT INTO FireJudgeResult(ID, ROOM_ID, PHYSICAL_TIME, SIM_TIME)
+INSERT INTO FIRE_JUDGE_RESULT(ID, ROOM_ID, PHYSICAL_TIME, SIM_TIME)
 SELECT CAST(t.X + 1 AS BIGINT), 'plandeduce', t.X, t.X
 FROM SYSTEM_RANGE(0, 1200) t;
 

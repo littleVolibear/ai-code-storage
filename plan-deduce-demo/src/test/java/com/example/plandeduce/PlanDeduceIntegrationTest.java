@@ -4,15 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
@@ -23,8 +20,6 @@ import javax.websocket.ContainerProvider;
 import javax.websocket.WebSocketContainer;
 import java.io.IOException;
 import java.net.URI;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,9 +58,6 @@ class PlanDeduceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
-    private DataSourceProperties dataSourceProperties;
-
     private final List<TestWebSocketClient> sockets = new ArrayList<>();
     private final List<TaskRef> tasksToDestroy = new ArrayList<>();
 
@@ -95,7 +87,7 @@ class PlanDeduceIntegrationTest {
         assertEquals(11, skipMessage.path("deduceTime").asInt());
         assertSimtimes(skipMessage, skipMessage.path("data"), concat(repeatSimtime(10), repeatSimtime(11)));
         assertEventTimes(skipMessage, skipMessage.path("eventData"), range(0, 11));
-        assertPieceFieldsPresent(skipMessage.path("data"));
+        assertRoomObjectFieldsPresent(skipMessage.path("data"));
     }
 
     @Test
@@ -112,7 +104,7 @@ class PlanDeduceIntegrationTest {
         assertEquals(13, skipMessage.path("deduceTime").asInt());
         assertSimtimes(skipMessage, skipMessage.path("data"), concat(repeatSimtime(10), repeatSimtime(13)));
         assertEventTimes(skipMessage, skipMessage.path("eventData"), range(0, 13));
-        assertPieceFieldsPresent(skipMessage.path("data"));
+        assertRoomObjectFieldsPresent(skipMessage.path("data"));
     }
 
     @Test
@@ -615,38 +607,6 @@ class PlanDeduceIntegrationTest {
     }
 
     @Test
-    void shouldKeepMultipleDbNamesIsolated() throws Exception {
-        String altDbName = "plandeduce_alt";
-        initializeDatabase(altDbName);
-
-        String sharedSessionId = newSessionId();
-        registerTask(altDbName, sharedSessionId);
-        TestWebSocketClient socket = connect(sharedSessionId);
-
-        initializeOnly(socket, DB_NAME, 0, sharedSessionId);
-        initializeOnly(socket, altDbName, 10, sharedSessionId);
-        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sharedSessionId);
-        call("/plan/startOrStop?dbName=" + altDbName + "&flag=1&sessionId=" + sharedSessionId);
-
-        JsonNode initDefault = socket.awaitMessage("INIT", DB_NAME, DEFAULT_TIMEOUT);
-        JsonNode initAlt = socket.awaitMessage("INIT", altDbName, DEFAULT_TIMEOUT);
-        assertEquals(0, initDefault.path("realTime").asInt());
-        assertEquals(10, initAlt.path("realTime").asInt());
-
-        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sharedSessionId);
-        JsonNode pauseDefault = socket.awaitMessage("PAUSE", DB_NAME, DEFAULT_TIMEOUT);
-        assertEquals(DB_NAME, pauseDefault.path("dbName").asText());
-
-        JsonNode playAlt = socket.awaitMessage("PLAY", altDbName, DEFAULT_TIMEOUT);
-        assertEquals(11, playAlt.path("realTime").asInt());
-        socket.assertNoMessage("PLAY", DB_NAME, Duration.ofMillis(350));
-
-        call("/plan/skip?dbName=" + altDbName + "&skip=13&sessionId=" + sharedSessionId);
-        JsonNode skipAlt = socket.awaitMessage("SKIP", altDbName, DEFAULT_TIMEOUT);
-        assertEquals(13, skipAlt.path("realTime").asInt());
-    }
-
-    @Test
     void shouldHandleRapidSkipSpeedPauseCombinations() throws Exception {
         String sessionId = newSessionId();
         TestWebSocketClient socket = connect(sessionId);
@@ -825,7 +785,7 @@ class PlanDeduceIntegrationTest {
         }
     }
 
-    private void assertPieceFieldsPresent(JsonNode dataNode) {
+    private void assertRoomObjectFieldsPresent(JsonNode dataNode) {
         assertTrue(dataNode.isArray());
         assertTrue(dataNode.size() > 0);
         JsonNode first = dataNode.get(0);
@@ -928,23 +888,6 @@ class PlanDeduceIntegrationTest {
         }
         fail("Timed out waiting business time to reach at least " + expectedBusinessTime + ", lastPlay=" + lastPlay);
         return null;
-    }
-
-    private void initializeDatabase(String dbName) throws Exception {
-        try (Connection connection = DriverManager.getConnection(buildJdbcUrl(dbName), dataSourceProperties.getUsername(), dataSourceProperties.getPassword())) {
-            ScriptUtils.executeSqlScript(connection, new ClassPathResource("schema.sql"));
-            ScriptUtils.executeSqlScript(connection, new ClassPathResource("data.sql"));
-        }
-    }
-
-    private String buildJdbcUrl(String dbName) {
-        String baseUrl = dataSourceProperties.getUrl();
-        int start = "jdbc:h2:mem:".length();
-        int end = baseUrl.indexOf(';', start);
-        if (end < 0) {
-            end = baseUrl.length();
-        }
-        return baseUrl.substring(0, start) + dbName + baseUrl.substring(end);
     }
 
     private static class TaskRef {

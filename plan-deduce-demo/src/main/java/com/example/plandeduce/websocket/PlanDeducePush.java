@@ -39,8 +39,8 @@ public class PlanDeducePush {
                              List<RoomObjectHis> incrementalData,
                              List<FireJudgeResult> eventData) {
         // data 是给前端直接消费的完整结果，内部统一按”全量 + 增量”顺序拼装。
-        hydratePieceRealTime(fullData, realTime);
-        hydratePieceRealTime(incrementalData, realTime);
+        hydrateRoomObjectRealTime(fullData, realTime);
+        hydrateRoomObjectRealTime(incrementalData, realTime);
         hydrateEventRealTime(eventData, realTime);
         List<RoomObjectHis> mergedData = new ArrayList<>(fullData.size() + incrementalData.size());
         mergedData.addAll(fullData);
@@ -115,7 +115,7 @@ public class PlanDeducePush {
         return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + startTime + "-" + deduceTime + " 秒增量数据";
     }
 
-    private void hydratePieceRealTime(List<RoomObjectHis> data, int realTime) {
+    private void hydrateRoomObjectRealTime(List<RoomObjectHis> data, int realTime) {
         for (RoomObjectHis row : data) {
             row.setRealTime(realTime);
         }

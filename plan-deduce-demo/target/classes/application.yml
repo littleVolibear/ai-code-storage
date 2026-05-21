@@ -4,7 +4,7 @@ server:
 spring:
   datasource:
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:plandeduce;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    url: jdbc:h2:mem:plandeduce;MODE=MySQL;DB_CLOSE_DELAY=-1
     username: sa
     password:
   h2:
@@ -22,3 +22,7 @@ plan:
     default-speed: 1
     tick-interval-ms: 1000
     max-worker-threads: 8
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true

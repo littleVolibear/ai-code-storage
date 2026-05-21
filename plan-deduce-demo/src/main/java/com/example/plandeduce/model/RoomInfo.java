@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 @Data
-@TableName("roomInfo")
+@TableName("ROOM_INFO")
 public class RoomInfo {
     @TableId("id")
     private Long id;

@@ -280,6 +280,9 @@ public class ScenarioTask {
             initializeRuntimeState();
             initSnapshotPushed.set(false);
         }
+        if (currentTime.get() >= maxSimTime.get()) {
+            resetForReplay();
+        }
         if (!initSnapshotPushed.get()) {
             running.set(true);
             // 首次通过“开始”进入播放时，先补一帧 INIT，确保前端先拿到基准快照。
@@ -476,6 +479,16 @@ public class ScenarioTask {
                 maxSimTime.get(),
                 text
         );
+    }
+
+    /**
+     * 已播放到终点后再次开始时，重置到起点并沿用当前倍速与间隔配置。
+     */
+    private void resetForReplay() {
+        currentTime.set(0);
+        realTime.set(0);
+        running.set(false);
+        initSnapshotPushed.set(false);
     }
 
 }

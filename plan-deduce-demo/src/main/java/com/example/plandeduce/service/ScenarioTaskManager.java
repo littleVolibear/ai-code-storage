@@ -13,7 +13,7 @@ import java.util.concurrent.ScheduledExecutorService;
 @Service
 /**
  * 任务管理器。
- * 负责维护所有 dbName + sessionId 组合下的运行任务，并复用统一线程池执行播放推进。
+ * 负责维护所有 sessionId 下的运行任务，并复用统一线程池执行播放推进。
  * 任务管理器本身不处理 WebSocket 协议细节，只负责给任务注入统一的推送门面。
  */
 public class ScenarioTaskManager {
@@ -41,10 +41,10 @@ public class ScenarioTaskManager {
 
     /**
      * 获取或创建任务。
-     * 同一个 dbName + sessionId 只允许存在一个活动任务，避免前端重复点开始时创建多个并发播放任务。
+     * 当前项目已经固定为单库运行，因此任务只按 sessionId 隔离。
      */
     public ScenarioTask getOrCreate(String dbName, String sessionId) {
-        String key = buildKey(dbName, sessionId);
+        String key = buildKey(sessionId);
         return taskMap.computeIfAbsent(key, k -> new ScenarioTask(
                 dbName,
                 sessionId,
@@ -59,7 +59,7 @@ public class ScenarioTaskManager {
      * 仅读取已存在任务，不会创建新任务。
      */
     public ScenarioTask get(String dbName, String sessionId) {
-        return taskMap.get(buildKey(dbName, sessionId));
+        return taskMap.get(buildKey(sessionId));
     }
 
     /**
@@ -67,18 +67,17 @@ public class ScenarioTaskManager {
      * 这个动作会真正停止定时推进，不是单纯把任务从 Map 删除。
      */
     public void remove(String dbName, String sessionId) {
-        ScenarioTask task = taskMap.remove(buildKey(dbName, sessionId));
+        ScenarioTask task = taskMap.remove(buildKey(sessionId));
         if (task != null) {
             task.stopAndDestroy();
         }
     }
 
     /**
-     * 任务唯一键由 dbName 和 sessionId 共同组成。
-     * 同一个 sessionId 在不同 dbName 下允许存在独立任务。
+     * 固定单库后，任务唯一键只保留 sessionId。
      */
-    private String buildKey(String dbName, String sessionId) {
-        return dbName + ":" + sessionId;
+    private String buildKey(String sessionId) {
+        return sessionId;
     }
 
     /**

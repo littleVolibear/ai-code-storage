@@ -6,12 +6,12 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 @Data
-@TableName("FireJudgeResult")
+@TableName("FIRE_JUDGE_RESULT")
 public class FireJudgeResult {
     @TableId("ID")
     private Long id; // 裁决 ID
     @TableField("ROOM_ID")
-    private String roomId; // 推演室 ID，对应 dbName
+    private String roomId; // 推演室 ID
     @TableField("PHYSICAL_TIME")
     private Integer physicalTime; // 仿真时间
     @TableField("SIM_TIME")

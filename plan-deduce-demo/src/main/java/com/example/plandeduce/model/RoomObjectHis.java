@@ -21,7 +21,9 @@ public class RoomObjectHis {
     private Integer objProtoId; // 棋子ID
     private String side; // 推演方
     private String objName; // 棋子名称
+    @TableField("ICON_3D")
     private String icon3d; // 棋子三维度图标
+    @TableField("ICON_2D")
     private String icon2d; // 棋子二维军标
     private Integer iconSize; // 图标大小
     private Integer objType; // 棋子类型
