@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface ProgressDataService {
     /**
-     * 预热当前库在指定全量间隔下的基础快照缓存。
+     * 预热指定全量间隔下的基础快照缓存。
      * 当前实现只保证 0 点全量快照可用，其他全量点按需生成并缓存。
      */
     void preloadFullSnapshots(String dbName, int intervalSeconds);
@@ -31,7 +31,7 @@ public interface ProgressDataService {
     List<RoomObjectHis> querySnapshotIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive);
 
     /**
-     * 查询当前库可播放到的最大业务秒点。
+     * 查询当前数据集可播放到的最大业务秒点。
      */
     Integer queryMaxSimTime(String dbName);
 
@@ -47,7 +47,7 @@ public interface ProgressDataService {
 
     /**
      * 查询当前推演任务的开始时间。
-     * 优先按 roomInfo.roomId=dbName 命中；如果未配置，则回退到首条 roomInfo 记录。
+     * 当前实现直接返回 ROOM_INFO 首条记录的开始时间。
      */
     String queryRoomStartTime(String dbName);
 }

@@ -21,9 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 /**
- * 数据查询服务实现。
- * 当前项目固定连接单一数据库，不再根据 dbName 动态切换连接。
- * 同时取消静态字段/动态字段拆分，统一按实体全字段查询和缓存。
+ * 单库快照查询与缓存实现。
  */
 public class ProgressDataServiceImpl implements ProgressDataService {
     private final RoomObjectHisMapper roomObjectMapper;
@@ -40,6 +38,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         this.roomInfoMapper = roomInfoMapper;
     }
 
+    /** 预热指定全量间隔下的 0 秒快照。 */
     @Override
     public void preloadFullSnapshots(String dbName, int intervalSeconds) {
         if (intervalSeconds <= 0) {
@@ -51,11 +50,13 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         eventSnapshotCache.computeIfAbsent(0, key -> buildZeroPointEventSnapshot());
     }
 
+    /** 读取全量秒点快照，未命中时现场构造并回填缓存。 */
     @Override
     public List<RoomObjectHis> queryCachedFullData(String dbName, int intervalSeconds, int simTime) {
         return cloneDataList(getFullSnapshotAtCachePoint(intervalSeconds, Math.max(simTime, 0)), "FULL");
     }
 
+    /** 查询播放帧使用的区间原始数据。 */
     @Override
     public List<RoomObjectHis> queryIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
         if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
@@ -64,6 +65,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return cloneDataList(queryRowsBetween(fromExclusive, toInclusive), "INCREMENT");
     }
 
+    /** 查询快照类消息使用的区间最终态补丁。 */
     @Override
     public List<RoomObjectHis> querySnapshotIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
         if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
@@ -76,6 +78,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return cloneDataList(sortByRoomObjectId(new ArrayList<>(latestRowsByObjectId.values())), "INCREMENT");
     }
 
+    /** 查询最大业务秒点。 */
     @Override
     public Integer queryMaxSimTime(String dbName) {
         LambdaQueryWrapper<RoomObjectHis> queryWrapper = Wrappers.<RoomObjectHis>lambdaQuery()
@@ -86,11 +89,13 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return latest == null || latest.getSimTime() == null ? 0 : latest.getSimTime();
     }
 
+    /** 读取事件全量快照。 */
     @Override
     public List<FireJudgeResult> queryEventFullData(String dbName, int intervalSeconds, Integer simTime) {
         return cloneEventDataList(getEventFullSnapshotAtCachePoint(intervalSeconds, Math.max(simTime == null ? 0 : simTime, 0)));
     }
 
+    /** 查询事件增量区间。 */
     @Override
     public List<FireJudgeResult> queryEventIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
         if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
@@ -99,6 +104,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return cloneEventDataList(queryEventRowsBetween(fromExclusive, toInclusive));
     }
 
+    /** 返回开始时间配置。 */
     @Override
     public String queryRoomStartTime(String dbName) {
         LambdaQueryWrapper<RoomInfo> queryWrapper = Wrappers.<RoomInfo>lambdaQuery()
@@ -108,6 +114,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return firstRow == null ? null : firstRow.getStartTime();
     }
 
+    /** 获取指定秒点的对象全量快照。 */
     private List<RoomObjectHis> getFullSnapshotAtCachePoint(int intervalSeconds, int simTime) {
         preloadFullSnapshots(null, intervalSeconds);
         Map<Integer, List<RoomObjectHis>> snapshotCacheByTime = fullSnapshotCache.computeIfAbsent(intervalSeconds, key -> new ConcurrentHashMap<>());
@@ -120,6 +127,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return existingSnapshot != null ? existingSnapshot : builtSnapshot;
     }
 
+    /** 获取指定秒点的事件全量快照。 */
     private List<FireJudgeResult> getEventFullSnapshotAtCachePoint(int intervalSeconds, int simTime) {
         preloadFullSnapshots(null, intervalSeconds);
         Map<Integer, List<FireJudgeResult>> snapshotCacheByTime = eventFullSnapshotCache.computeIfAbsent(intervalSeconds, key -> new ConcurrentHashMap<>());
@@ -132,6 +140,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return existingSnapshot != null ? existingSnapshot : builtSnapshot;
     }
 
+    /** 基于上一个全量点滚动构造事件快照。 */
     private List<FireJudgeResult> buildEventFullSnapshotAtPoint(int intervalSeconds, int simTime) {
         int targetTime = Math.max(simTime, 0);
         if (targetTime == 0) {
@@ -144,10 +153,12 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return merged;
     }
 
+    /** 构造 0 秒事件快照。 */
     private List<FireJudgeResult> buildZeroPointEventSnapshot() {
         return queryEventRowsAtTime(0);
     }
 
+    /** 基于上一个全量点滚动构造对象快照。 */
     private List<RoomObjectHis> buildFullSnapshotAtPoint(int intervalSeconds, int simTime) {
         int targetTime = Math.max(simTime, 0);
         if (targetTime == 0) {
@@ -162,10 +173,12 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return markSourceType(sortByRoomObjectId(new ArrayList<>(mergedRowsByObjectId.values())), "FULL");
     }
 
+    /** 构造 0 秒对象快照。 */
     private List<RoomObjectHis> buildZeroPointSnapshot() {
         return markSourceType(sortByRoomObjectId(queryRowsAtTime(0)), "FULL");
     }
 
+    /** 查询某一秒的对象记录。 */
     private List<RoomObjectHis> queryRowsAtTime(int simTime) {
         LambdaQueryWrapper<RoomObjectHis> queryWrapper = Wrappers.<RoomObjectHis>lambdaQuery()
                 .eq(RoomObjectHis::getSimTime, simTime)
@@ -173,6 +186,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return roomObjectMapper.selectList(queryWrapper);
     }
 
+    /** 查询区间内的对象记录。 */
     private List<RoomObjectHis> queryRowsBetween(int fromExclusive, int toInclusive) {
         LambdaQueryWrapper<RoomObjectHis> queryWrapper = Wrappers.<RoomObjectHis>lambdaQuery()
                 .gt(RoomObjectHis::getSimTime, fromExclusive)
@@ -182,6 +196,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return roomObjectMapper.selectList(queryWrapper);
     }
 
+    /** 提取区间内每个对象最后一次生效记录。 */
     private List<RoomObjectHis> queryLatestRowsByRoomObjectId(int fromExclusive, int toInclusive) {
         Map<Integer, RoomObjectHis> latestRowsByObjectId = new LinkedHashMap<>();
         for (RoomObjectHis row : queryRowsBetween(fromExclusive, toInclusive)) {
@@ -190,14 +205,16 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return sortByRoomObjectId(new ArrayList<>(latestRowsByObjectId.values()));
     }
 
-    private List<FireJudgeResult> queryEventRowsAtTime(int simTime) {
+    /** 查询某一秒的事件记录。 */
+    private List<FireJudgeResult> queryEventRowsAtTime(int simTimeValue) {
         LambdaQueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>lambdaQuery()
-                .eq(FireJudgeResult::getSimTime, simTime)
+                .eq(FireJudgeResult::getSimTime, simTimeValue)
                 .orderByAsc(FireJudgeResult::getSimTime)
                 .orderByAsc(FireJudgeResult::getId);
         return fireJudgeResultMapper.selectList(queryWrapper);
     }
 
+    /** 查询区间内的事件记录。 */
     private List<FireJudgeResult> queryEventRowsBetween(int fromExclusive, int toInclusive) {
         LambdaQueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>lambdaQuery()
                 .gt(FireJudgeResult::getSimTime, fromExclusive)
@@ -207,6 +224,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return fireJudgeResultMapper.selectList(queryWrapper);
     }
 
+    /** 按对象 ID 建索引，便于做最终态覆盖。 */
     private Map<Integer, RoomObjectHis> indexByRoomObjectId(List<RoomObjectHis> rows) {
         Map<Integer, RoomObjectHis> rowsByObjectId = new LinkedHashMap<>();
         for (RoomObjectHis row : rows) {
@@ -215,6 +233,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return rowsByObjectId;
     }
 
+    /** 统一结果顺序，便于前端消费和测试断言。 */
     private List<RoomObjectHis> sortByRoomObjectId(List<RoomObjectHis> rows) {
         rows.sort(Comparator
                 .comparing(RoomObjectHis::getRoomObjectId)
@@ -222,11 +241,13 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return rows;
     }
 
+    /** 标记快照来源类型。 */
     private List<RoomObjectHis> markSourceType(List<RoomObjectHis> rows, String sourceType) {
         rows.forEach(row -> row.setSourceType(sourceType));
         return rows;
     }
 
+    /** 克隆对象数据，避免调用方改动缓存对象。 */
     private List<RoomObjectHis> cloneDataList(List<RoomObjectHis> dataList, String sourceType) {
         List<RoomObjectHis> clones = new ArrayList<>(dataList.size());
         for (RoomObjectHis item : dataList) {
@@ -238,6 +259,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return clones;
     }
 
+    /** 克隆事件数据，避免调用方改动缓存对象。 */
     private List<FireJudgeResult> cloneEventDataList(List<FireJudgeResult> dataList) {
         List<FireJudgeResult> clones = new ArrayList<>(dataList.size());
         for (FireJudgeResult item : dataList) {

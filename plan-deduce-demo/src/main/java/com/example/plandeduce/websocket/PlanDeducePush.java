@@ -11,8 +11,7 @@ import java.util.List;
 
 /**
  * 进度条 WebSocket 推送门面。
- * 业务侧只需要提供当前运行态和数据快照，这里统一负责组装消息协议、生成说明文案并下发到对应 session。
- * 这样 ScenarioTask 之类的业务类只关心“当前该推什么”，不用关心“消息具体长什么样、怎么发出去”。
+ * 负责组装推送报文并发送到对应 session。
  */
 @Component
 public class PlanDeducePush {
@@ -25,6 +24,7 @@ public class PlanDeducePush {
     /**
      * 推送带数据的快照消息。
      * 所有需要刷新进度条和数据面板的事件都应经过这个入口，避免业务代码散落拼接 PushMessage。
+     * 这里会把 fullData 和 incrementalData 合并到 data 字段，供前端直接消费。
      */
     public void pushSnapshot(String type,
                              String dbName,
@@ -38,7 +38,6 @@ public class PlanDeducePush {
                              List<RoomObjectHis> fullData,
                              List<RoomObjectHis> incrementalData,
                              List<FireJudgeResult> eventData) {
-        // data 是给前端直接消费的完整结果，内部统一按”全量 + 增量”顺序拼装。
         hydrateRoomObjectRealTime(fullData, realTime);
         hydrateRoomObjectRealTime(incrementalData, realTime);
         hydrateEventRealTime(eventData, realTime);
@@ -46,7 +45,6 @@ public class PlanDeducePush {
         mergedData.addAll(fullData);
         mergedData.addAll(incrementalData);
 
-        // 所有快照类事件沿用同一份协议结构，避免 INIT/PLAY/SKIP/INTERVAL 的字段漂移。
         PushMessage message = buildBaseMessage(type, dbName, sessionId, realTime, deduceTime, fullTime, speed, running, maxSimTime);
         message.setFullData(Collections.emptyList());
         message.setIncrementalData(Collections.emptyList());
@@ -70,7 +68,6 @@ public class PlanDeducePush {
                            boolean running,
                            int maxSimTime,
                            String text) {
-        // 状态类事件同样保留 realTime/fullTime/speed/running，方便前端只维护一套状态同步逻辑。
         PushMessage message = buildBaseMessage(type, dbName, sessionId, realTime, deduceTime, fullTime, speed, running, maxSimTime);
         message.setMessage(text);
         webSocketHandler.sendToSession(sessionId, message);

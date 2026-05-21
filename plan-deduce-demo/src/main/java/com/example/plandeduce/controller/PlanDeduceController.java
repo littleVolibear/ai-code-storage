@@ -13,7 +13,7 @@ import javax.validation.constraints.NotNull;
 @RequestMapping("/plan")
 /**
  * 进度条控制接口。
- * 这里的 HTTP 接口只负责“发命令”，真正的播放状态和数据变化通过 WebSocket 推送给前端。
+ * HTTP 负责发命令，播放状态和数据变化通过 WebSocket 推送给前端。
  */
 public class PlanDeduceController {
     private final ScenarioTaskManager taskManager;
@@ -27,12 +27,12 @@ public class PlanDeduceController {
     /**
      * 初始化任务，但不开始播放。
      * 前端拿到时间范围后，需要再调用 startOrStop(flag=1) 才会真正开始推送 WebSocket 数据。
+     * dbName 参数当前仅保留为兼容字段，不再驱动实际的数据源切换。
      */
     @GetMapping("/sendPlanDeduce")
     public InitProgressResponse sendPlanDeduce(@NotNull(message = "库名不能为空") @RequestParam String dbName,
                                                @RequestParam(defaultValue = "0") Integer skip,
                                                @RequestParam(defaultValue = "default") String sessionId) {
-        // 初始化前先检查现有任务是否仍在播放，避免同一个任务在执行中被重新初始化打乱状态和推送时序。
         ScenarioTask existingTask = taskManager.get(dbName, sessionId);
         if (existingTask != null && existingTask.isExecuting()) {
             throw new IllegalArgumentException("当前任务正在执行，请先暂停或销毁后再初始化");
