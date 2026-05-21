@@ -24,6 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * 单库快照查询与缓存实现。
  */
 public class ProgressDataServiceImpl implements ProgressDataService {
+    private static final String SOURCE_TYPE_FULL = "FULL";
+    private static final String SOURCE_TYPE_INCREMENT = "INCREMENT";
+
     private final RoomObjectHisMapper roomObjectMapper;
     private final FireJudgeResultMapper fireJudgeResultMapper;
     private final RoomInfoMapper roomInfoMapper;
@@ -53,7 +56,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     /** 读取全量秒点快照，未命中时现场构造并回填缓存。 */
     @Override
     public List<RoomObjectHis> queryCachedFullData(String dbName, int intervalSeconds, int simTime) {
-        return cloneDataList(getFullSnapshotAtCachePoint(intervalSeconds, Math.max(simTime, 0)), "FULL");
+        return cloneDataList(getFullSnapshotAtCachePoint(intervalSeconds, Math.max(simTime, 0)), SOURCE_TYPE_FULL);
     }
 
     /** 查询播放帧使用的区间原始数据。 */
@@ -62,7 +65,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
             return new ArrayList<>();
         }
-        return cloneDataList(queryRowsBetween(fromExclusive, toInclusive), "INCREMENT");
+        return cloneDataList(queryRowsBetween(fromExclusive, toInclusive), SOURCE_TYPE_INCREMENT);
     }
 
     /** 查询快照类消息使用的区间最终态补丁。 */
@@ -75,7 +78,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         for (RoomObjectHis row : queryRowsBetween(fromExclusive, toInclusive)) {
             latestRowsByObjectId.put(row.getRoomObjectId(), row);
         }
-        return cloneDataList(sortByRoomObjectId(new ArrayList<>(latestRowsByObjectId.values())), "INCREMENT");
+        return cloneDataList(sortByRoomObjectId(new ArrayList<>(latestRowsByObjectId.values())), SOURCE_TYPE_INCREMENT);
     }
 
     /** 查询最大业务秒点。 */
@@ -170,12 +173,12 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         for (RoomObjectHis latestRow : queryLatestRowsByRoomObjectId(previousFullTime, targetTime)) {
             mergedRowsByObjectId.put(latestRow.getRoomObjectId(), latestRow);
         }
-        return markSourceType(sortByRoomObjectId(new ArrayList<>(mergedRowsByObjectId.values())), "FULL");
+        return markSourceType(sortByRoomObjectId(new ArrayList<>(mergedRowsByObjectId.values())), SOURCE_TYPE_FULL);
     }
 
     /** 构造 0 秒对象快照。 */
     private List<RoomObjectHis> buildZeroPointSnapshot() {
-        return markSourceType(sortByRoomObjectId(queryRowsAtTime(0)), "FULL");
+        return markSourceType(sortByRoomObjectId(queryRowsAtTime(0)), SOURCE_TYPE_FULL);
     }
 
     /** 查询某一秒的对象记录。 */
