@@ -238,22 +238,39 @@ public class ProgressDataServiceImpl implements ProgressDataService {
 
     /** 统一结果顺序，便于前端消费和测试断言。 */
     private List<RoomObjectHis> sortByRoomObjectId(List<RoomObjectHis> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return new ArrayList<>();
+        }
+        rows.removeIf(java.util.Objects::isNull);
         rows.sort(Comparator
-                .comparing(RoomObjectHis::getRoomObjectId)
+                .comparing(RoomObjectHis::getRoomObjectId, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(RoomObjectHis::getTargetId, Comparator.nullsLast(Comparator.naturalOrder())));
         return rows;
     }
 
     /** 标记快照来源类型。 */
     private List<RoomObjectHis> markSourceType(List<RoomObjectHis> rows, String sourceType) {
-        rows.forEach(row -> row.setSourceType(sourceType));
+        if (rows == null || rows.isEmpty()) {
+            return new ArrayList<>();
+        }
+        rows.forEach(row -> {
+            if (row != null) {
+                row.setSourceType(sourceType);
+            }
+        });
         return rows;
     }
 
     /** 克隆对象数据，避免调用方改动缓存对象。 */
     private List<RoomObjectHis> cloneDataList(List<RoomObjectHis> dataList, String sourceType) {
+        if (dataList == null || dataList.isEmpty()) {
+            return new ArrayList<>();
+        }
         List<RoomObjectHis> clones = new ArrayList<>(dataList.size());
         for (RoomObjectHis item : dataList) {
+            if (item == null) {
+                continue;
+            }
             RoomObjectHis clone = new RoomObjectHis();
             BeanUtils.copyProperties(item, clone);
             clone.setSourceType(sourceType);
@@ -264,8 +281,14 @@ public class ProgressDataServiceImpl implements ProgressDataService {
 
     /** 克隆事件数据，避免调用方改动缓存对象。 */
     private List<FireJudgeResult> cloneEventDataList(List<FireJudgeResult> dataList) {
+        if (dataList == null || dataList.isEmpty()) {
+            return new ArrayList<>();
+        }
         List<FireJudgeResult> clones = new ArrayList<>(dataList.size());
         for (FireJudgeResult item : dataList) {
+            if (item == null) {
+                continue;
+            }
             FireJudgeResult clone = new FireJudgeResult();
             BeanUtils.copyProperties(item, clone);
             clones.add(clone);

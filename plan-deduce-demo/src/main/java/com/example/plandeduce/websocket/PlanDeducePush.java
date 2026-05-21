@@ -38,6 +38,9 @@ public class PlanDeducePush {
                              List<RoomObjectHis> fullData,
                              List<RoomObjectHis> incrementalData,
                              List<FireJudgeResult> eventData) {
+        fullData = safeRoomObjectList(fullData);
+        incrementalData = safeRoomObjectList(incrementalData);
+        eventData = safeEventDataList(eventData);
         hydrateRoomObjectRealTime(fullData, realTime);
         hydrateRoomObjectRealTime(incrementalData, realTime);
         hydrateEventRealTime(eventData, realTime);
@@ -114,13 +117,25 @@ public class PlanDeducePush {
 
     private void hydrateRoomObjectRealTime(List<RoomObjectHis> data, int realTime) {
         for (RoomObjectHis row : data) {
-            row.setRealTime(realTime);
+            if (row != null) {
+                row.setRealTime(realTime);
+            }
         }
     }
 
     private void hydrateEventRealTime(List<FireJudgeResult> data, int realTime) {
         for (FireJudgeResult row : data) {
-            row.setRealTime(realTime);
+            if (row != null) {
+                row.setRealTime(realTime);
+            }
         }
+    }
+
+    private List<RoomObjectHis> safeRoomObjectList(List<RoomObjectHis> data) {
+        return data == null ? Collections.emptyList() : data;
+    }
+
+    private List<FireJudgeResult> safeEventDataList(List<FireJudgeResult> data) {
+        return data == null ? Collections.emptyList() : data;
     }
 }
