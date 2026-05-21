@@ -31,9 +31,11 @@ public class ScenarioTask {
     private final AtomicInteger speed = new AtomicInteger(1);
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean initialized = new AtomicBoolean(false);
+    // 标记本轮播放是否已经向前端推送过首次 INIT 完整快照，避免暂停恢复时重复初始化。
     private final AtomicBoolean initSnapshotPushed = new AtomicBoolean(false);
     private final AtomicInteger fullSaveIntervalSeconds = new AtomicInteger(600);
     private final AtomicInteger maxSimTime = new AtomicInteger(0);
+    // 暂存待跳转的目标秒点，由 tick 线程串行消费，避免 skip 与正常播放推进并发冲突。
     private final AtomicReference<Integer> pendingSkipTime = new AtomicReference<Integer>();
     private volatile ScheduledFuture<?> future;
 
@@ -131,7 +133,7 @@ public class ScenarioTask {
      * 调整播放倍速。
      * 重要规则：
      * 1. speed=0 等价于暂停；
-     * 2. 已暂停状态下把 speed 改成非 0，只修改倍速，不会自动恢复播放；
+     * 2. 这里只负责更新倍速和 running 标记，是否自动恢复由外层 setSpeedAndResume 决定；
      * 3. 已播放状态下改倍速，下一帧会按新倍速推进。
      */
     public void setSpeed(Integer newSpeed) {

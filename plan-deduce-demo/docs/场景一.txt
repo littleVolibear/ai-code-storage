@@ -10,8 +10,9 @@ PlanDeduceIntegrationTest.shouldStartPauseAndResumeAtOneX
 6. 到终点时顺序是 PLAY -> PAUSE -> FINISH。
 
 协议注意：
-1. 前端消费 data 和 eventData。
+1. 前端主消费 data 和 eventData。
 2. fullData / incrementalData 现在固定发空数组。
-3. HTTP 200 只代表命令收到了，前端状态以后端 WebSocket 为准。
+3. 时间字段要区分 realTime 和 deduceTime，不再使用 currentTime。
+4. HTTP 200 只代表命令收到了，前端状态以后端 WebSocket 为准。
 
 详细说明见：docs/云场景一.md

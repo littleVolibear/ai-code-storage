@@ -2,14 +2,13 @@
 PlanDeduceIntegrationTest.shouldSupportDocumentedScenarioTwoFlow
 
 当前真实行为：
-1. 先调 speed=3 只是预设倍速，不会自动开始播放。
-2. 如果任务还没初始化，第一次 startOrStop(flag=1) 会自动初始化。
-3. 因为是首次开始，所以会先收到 INIT，不是 START。
-4. INIT 之后按 3 倍速推 PLAY，时间一般是 0 -> 3 -> 6 -> 9。
-5. 暂停后再次开始，才会收到 START，然后继续 PLAY。
+1. 先调 speed=3 会先收到 SPEED。
+2. 因为当前代码的 /plan/speed 会在 speed>0 且 running=false 时自动 resume，所以随后会直接收到 INIT。
+3. INIT 之后按 3 倍速推 PLAY，时间轴表现为 realTime 递增 1、deduceTime 递增 3。
+4. 暂停后再次开始，才会收到 START，然后继续 PLAY。
 
 协议注意：
-1. 这个场景可以不先调 sendPlanDeduce。
+1. 这个场景下不需要先调 sendPlanDeduce，也不需要再额外调一次 start 才能首次 INIT。
 2. data 是主数据，eventData 是事件数据。
 3. fullData / incrementalData 当前固定为空数组。
 

@@ -548,6 +548,179 @@ class PlanDeduceIntegrationTest {
     }
 
     @Test
+    void shouldPauseResumeAndStillReachFinish() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        initializeAndStart(socket, DB_NAME, 1197, sessionId);
+
+        JsonNode firstPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1198, firstPlay.path("realTime").asInt());
+        assertBusinessTime(firstPlay, 1198);
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
+        JsonNode pause = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1198, pause.path("realTime").asInt());
+        assertFalse(pause.path("running").asBoolean());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
+        JsonNode start = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
+        assertEquals(1198, start.path("realTime").asInt());
+        assertTrue(start.path("running").asBoolean());
+
+        JsonNode resumedPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1199, resumedPlay.path("realTime").asInt());
+        assertBusinessTime(resumedPlay, 1199);
+
+        JsonNode finalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1200, finalPlay.path("realTime").asInt());
+        assertBusinessTime(finalPlay, 1200);
+
+        JsonNode pauseAtFinish = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1200, pauseAtFinish.path("realTime").asInt());
+        JsonNode finish = socket.awaitMessageOfType("FINISH", DEFAULT_TIMEOUT);
+        assertEquals(1200, finish.path("realTime").asInt());
+        socket.assertNoMessageOfType("ERROR", Duration.ofMillis(350));
+    }
+
+    @Test
+    void shouldKeepRunningWhenSpeedChangesToFiveXUntilFinish() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        initializeAndStart(socket, DB_NAME, 1194, sessionId);
+
+        JsonNode firstPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1195, firstPlay.path("realTime").asInt());
+        assertBusinessTime(firstPlay, 1195);
+
+        call("/plan/speed?dbName=" + DB_NAME + "&speed=5&sessionId=" + sessionId);
+        JsonNode speed = socket.awaitMessageOfType("SPEED", DEFAULT_TIMEOUT);
+        assertEquals(5, speed.path("speed").asInt());
+        assertTrue(speed.path("running").asBoolean());
+
+        JsonNode nextMessage = socket.awaitNextMessage(DEFAULT_TIMEOUT);
+        assertEquals("PLAY", nextMessage.path("type").asText());
+        assertEquals(1196, nextMessage.path("realTime").asInt());
+        assertBusinessTime(nextMessage, 1200);
+        assertEquals(5, nextMessage.path("speed").asInt());
+
+        JsonNode pauseAtFinish = socket.awaitNextMessage(DEFAULT_TIMEOUT);
+        assertEquals("PAUSE", pauseAtFinish.path("type").asText());
+        JsonNode finish = socket.awaitNextMessage(DEFAULT_TIMEOUT);
+        assertEquals("FINISH", finish.path("type").asText());
+        socket.assertNoMessageOfType("ERROR", Duration.ofMillis(350));
+    }
+
+    @Test
+    void shouldAutoPlayAfterSettingFiveXThenAllowExplicitPlayWithoutPause() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        initializeOnly(socket, DB_NAME, 1194, sessionId);
+
+        call("/plan/speed?dbName=" + DB_NAME + "&speed=5&sessionId=" + sessionId);
+        JsonNode speed = socket.awaitMessageOfType("SPEED", DEFAULT_TIMEOUT);
+        assertEquals(5, speed.path("speed").asInt());
+        assertFalse(speed.path("running").asBoolean());
+
+        JsonNode init = socket.awaitMessageOfType("INIT", DEFAULT_TIMEOUT);
+        assertEquals(1194, init.path("realTime").asInt());
+        assertEquals(5, init.path("speed").asInt());
+        assertTrue(init.path("running").asBoolean());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
+        JsonNode start = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
+        assertEquals(1194, start.path("realTime").asInt());
+        assertEquals(5, start.path("speed").asInt());
+        assertTrue(start.path("running").asBoolean());
+
+        JsonNode play = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1195, play.path("realTime").asInt());
+        assertBusinessTime(play, 1199);
+
+        JsonNode finalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1196, finalPlay.path("realTime").asInt());
+        assertBusinessTime(finalPlay, 1200);
+
+        JsonNode pauseAtFinish = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1196, pauseAtFinish.path("realTime").asInt());
+        JsonNode finish = socket.awaitMessageOfType("FINISH", DEFAULT_TIMEOUT);
+        assertEquals(1196, finish.path("realTime").asInt());
+        socket.assertNoMessageOfType("ERROR", Duration.ofMillis(350));
+    }
+
+    @Test
+    void shouldPauseResumeAfterFiveXAndStillFinishWithoutError() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        initializeOnly(socket, DB_NAME, 1193, sessionId);
+
+        call("/plan/speed?dbName=" + DB_NAME + "&speed=5&sessionId=" + sessionId);
+        socket.awaitMessageOfType("SPEED", DEFAULT_TIMEOUT);
+        socket.awaitMessageOfType("INIT", DEFAULT_TIMEOUT);
+
+        JsonNode playAtFiveX = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1194, playAtFiveX.path("realTime").asInt());
+        assertBusinessTime(playAtFiveX, 1198);
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
+        JsonNode pause = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1194, pause.path("realTime").asInt());
+        assertFalse(pause.path("running").asBoolean());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
+        JsonNode start = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
+        assertEquals(1194, start.path("realTime").asInt());
+        assertEquals(5, start.path("speed").asInt());
+
+        JsonNode finalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1195, finalPlay.path("realTime").asInt());
+        assertBusinessTime(finalPlay, 1200);
+
+        JsonNode pauseAtFinish = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1195, pauseAtFinish.path("realTime").asInt());
+        JsonNode finish = socket.awaitMessageOfType("FINISH", DEFAULT_TIMEOUT);
+        assertEquals(1195, finish.path("realTime").asInt());
+        socket.assertNoMessageOfType("ERROR", Duration.ofMillis(350));
+    }
+
+    @Test
+    void shouldAutoResumeAfterPauseThenSkipAndStillFinish() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        initializeAndStart(socket, DB_NAME, 1190, sessionId);
+
+        JsonNode firstPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1191, firstPlay.path("realTime").asInt());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
+        JsonNode pause = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1191, pause.path("realTime").asInt());
+
+        call("/plan/skip?dbName=" + DB_NAME + "&skip=1199&sessionId=" + sessionId);
+        JsonNode start = socket.awaitMessageOfType("START", DEFAULT_TIMEOUT);
+        assertEquals(1191, start.path("realTime").asInt());
+        assertTrue(start.path("running").asBoolean());
+
+        JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
+        assertEquals(1199, skip.path("realTime").asInt());
+        assertEquals(1199, skip.path("deduceTime").asInt());
+
+        JsonNode finalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1200, finalPlay.path("realTime").asInt());
+        assertBusinessTime(finalPlay, 1200);
+
+        JsonNode pauseAtFinish = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1200, pauseAtFinish.path("realTime").asInt());
+        JsonNode finish = socket.awaitMessageOfType("FINISH", DEFAULT_TIMEOUT);
+        assertEquals(1200, finish.path("realTime").asInt());
+        socket.assertNoMessageOfType("ERROR", Duration.ofMillis(350));
+    }
+
+    @Test
     void shouldKeepMultipleSessionsIsolated() throws Exception {
         String sessionId1 = newSessionId();
         String sessionId2 = newSessionId();
@@ -951,6 +1124,12 @@ class PlanDeduceIntegrationTest {
             }
             fail("Timed out waiting for message type " + type + " and dbName " + dbName);
             return null;
+        }
+
+        private JsonNode awaitNextMessage(Duration timeout) throws InterruptedException {
+            JsonNode message = messages.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            assertNotNull(message, "Timed out waiting for next websocket message");
+            return message;
         }
 
         private void assertNoMessageOfType(String type, Duration duration) throws InterruptedException {

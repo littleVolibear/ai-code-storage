@@ -46,14 +46,13 @@
 那么：
 
 - `fullTime = 10`
-- `fullData = 10秒全量`
-- `incrementalData = 11~13秒增量`
+- 内部快照语义上等价于“10 秒全量 + 11~13 秒增量”
 
 所以它不是一个普通的 UI 参数，而是直接影响：
 
 1. 快照拼装逻辑
 2. WebSocket 推送结果
-3. 前端收到的 `fullTime/fullData/incrementalData`
+3. 前端收到的 `fullTime` 以及 `data/eventData` 内容
 
 这意味着它既有“系统默认配置”的属性，也有“运行时业务控制参数”的属性。
 

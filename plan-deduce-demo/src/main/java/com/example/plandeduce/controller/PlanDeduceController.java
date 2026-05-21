@@ -55,7 +55,7 @@ public class PlanDeduceController {
 
     /**
      * 修改当前任务倍速。
-     * speed=0 表示暂停；暂停态下调成非 0 倍速只会更新速度，不会自动恢复播放。
+     * speed=0 表示暂停；调成非 0 倍速时会走 setSpeedAndResume，必要时自动恢复播放。
      */
     @GetMapping("/speed")
     public void speed(@NotNull(message = "库名不能为空") @RequestParam String dbName,

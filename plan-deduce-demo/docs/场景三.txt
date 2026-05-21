@@ -4,13 +4,12 @@ PlanDeduceIntegrationTest.shouldSupportDocumentedScenarioThreeFlow
 当前真实行为：
 1. sendPlanDeduce 只初始化并返回进度条范围。
 2. 第一次 startOrStop(flag=1) 才开始播放，先发 INIT。
-3. 播到 currentTime >= 5 后暂停。
-4. 暂停状态下 speed=3 只会改倍速，不会自动恢复播放。
-5. 再次 startOrStop(flag=1) 会发 START。
-6. 恢复后的下一帧会从 5 直接跳到 8，说明 3 倍速已生效。
+3. 播到 realTime=5、deduceTime=5 后暂停。
+4. 暂停状态下 speed=3 会先发 SPEED，再自动发 START。
+5. 恢复后的下一帧会从 realTime=6、deduceTime=8 开始推进，说明 3 倍速已生效。
 
 协议注意：
-1. 暂停时机要以后端 PLAY.currentTime 为准，不要用浏览器本地计时。
+1. 暂停时机要以后端 PLAY.realTime / PLAY.deduceTime 为准，不要用浏览器本地计时。
 2. 前端消费 data 和 eventData。
 3. fullData / incrementalData 当前固定为空数组。
 

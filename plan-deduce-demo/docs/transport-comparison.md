@@ -111,7 +111,7 @@
 ```json
 {
   "running": true,
-  "currentTime": 15,
+  "deduceTime": 15,
   "fullTime": 10,
   "speed": 5,
   "data": [],
