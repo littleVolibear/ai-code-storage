@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 单个推演任务的运行时状态。
- * 当前项目虽然保留了 dbName 参数做接口兼容，但任务实际只按 sessionId 隔离，
+ * dbName 表示 ROOM_INFO 主键 ID；任务实际仍按 sessionId 隔离，
  * 这里封装的是单个前端会话下的播放进度、倍速、暂停状态和快照查询逻辑。
  */
 public class ScenarioTask {
@@ -61,6 +61,10 @@ public class ScenarioTask {
      * 当前实现会预热 0 秒快照，后续整间隔全量点由数据服务按需构造。
      */
     public synchronized void initialize(Integer startTime, Integer intervalSeconds) {
+        initialize(startTime, intervalSeconds, null);
+    }
+
+    public synchronized void initialize(Integer startTime, Integer intervalSeconds, Integer knownMaxSimTime) {
         if (startTime != null) {
             int safeStartTime = Math.max(startTime, 0);
             currentTime.set(safeStartTime);
@@ -69,7 +73,7 @@ public class ScenarioTask {
         if (intervalSeconds != null && intervalSeconds > 0) {
             fullSaveIntervalSeconds.set(intervalSeconds);
         }
-        initializeRuntimeState();
+        initializeRuntimeState(knownMaxSimTime);
         running.set(false);
         initSnapshotPushed.set(false);
     }
@@ -149,8 +153,9 @@ public class ScenarioTask {
     }
 
     /**
-     * 调速后强制进入播放态。
-     * 先发 SPEED，再根据当前初始化状态补 INIT 或 START，确保前端看到“调速后自动开始播放”。
+     * 调速后的组合入口。
+     * 先发 SPEED；当 speed>0 且当前未运行时，再根据初始化状态补 INIT 或 START。
+     * 如果当前已在播放，则不会重复进入播放态，只会让后续 tick 按新倍速推进。
      */
     public synchronized void setSpeedAndResume(Integer newSpeed) {
         setSpeed(newSpeed);
@@ -355,8 +360,15 @@ public class ScenarioTask {
      * 允许重复调用，用于“先设倍速、后点击开始”这类延迟初始化场景。
      */
     private void initializeRuntimeState() {
+        initializeRuntimeState(null);
+    }
+
+    private void initializeRuntimeState(Integer knownMaxSimTime) {
         progressDataService.preloadFullSnapshots(dbName, fullSaveIntervalSeconds.get());
-        maxSimTime.set(progressDataService.queryMaxSimTime(dbName));
+        Integer resolvedMaxSimTime = knownMaxSimTime != null
+                ? knownMaxSimTime
+                : progressDataService.queryProgressTimeline(dbName).getEndTime();
+        maxSimTime.set(resolvedMaxSimTime == null ? 0 : resolvedMaxSimTime);
         initialized.set(true);
     }
 

@@ -17,7 +17,7 @@ public class PushMessage {
      *
      * {
      *   "type": "PLAY",
-     *   "dbName": "plandeduce",
+     *   "dbName": "1",
      *   "sessionId": "demo-session",
      *   "realTime": 3,
      *   "deduceTime": 5,
@@ -38,16 +38,16 @@ public class PushMessage {
      *     { "roomObjectId": 103, "simTime": 5, "realTime": 3 }
      *   ],
      *   "eventData": [
-     *     { "id": 9001, "roomId": "plandeduce", "simTime": 3, "realTime": 3 },
-     *     { "id": 9002, "roomId": "plandeduce", "simTime": 4, "realTime": 3 },
-     *     { "id": 9003, "roomId": "plandeduce", "simTime": 5, "realTime": 3 }
+     *     { "id": 9001, "roomId": "1", "simTime": 3, "realTime": 3 },
+     *     { "id": 9002, "roomId": "1", "simTime": 4, "realTime": 3 },
+     *     { "id": 9003, "roomId": "1", "simTime": 5, "realTime": 3 }
      *   ],
      *   "message": "当前真实时间 3 秒，推演时间 5 秒，返回第 3-5 秒增量数据",
      *   "maxSimTime": 1200
      * }
      */
     private String type; // 消息类型，如 INIT/PLAY/PAUSE/SKIP
-    private String dbName; // 兼容字段，保留前端传入的数据库名参数
+    private String dbName; // ROOM_INFO 主键 ID，对应本次推演的数据集
     private String sessionId; // 当前前端会话标识
     private Integer realTime; // 当前真实时间轴位置，不受倍速跳跃影响
     private Integer deduceTime; // 当前推演时间轴位置，受倍速和跳点影响

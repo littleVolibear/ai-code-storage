@@ -2,6 +2,7 @@ package com.example.plandeduce.service;
 
 import com.example.plandeduce.config.PlanDeduceProperties;
 import com.example.plandeduce.model.FireJudgeResult;
+import com.example.plandeduce.model.ProgressTimeline;
 import com.example.plandeduce.model.PushMessage;
 import com.example.plandeduce.model.RoomObjectHis;
 import com.example.plandeduce.websocket.PlanDeducePush;
@@ -27,7 +28,7 @@ class ScenarioTaskReplayTest {
 
         ScenarioTaskManager taskManager = new ScenarioTaskManager(new FakeProgressDataService(), push, properties);
         try {
-            ScenarioTask task = taskManager.getOrCreate("plandeduce", "session-1");
+            ScenarioTask task = taskManager.getOrCreate("1", "session-1");
             task.initialize(5, null);
 
             task.startOrStop(1);
@@ -80,6 +81,11 @@ class ScenarioTaskReplayTest {
 
     private static class FakeProgressDataService implements ProgressDataService {
         @Override
+        public ProgressTimeline queryProgressTimeline(String dbName) {
+            return new ProgressTimeline("2026-01-01 00:00:00", 5);
+        }
+
+        @Override
         public void preloadFullSnapshots(String dbName, int intervalSeconds) {
         }
 
@@ -99,11 +105,6 @@ class ScenarioTaskReplayTest {
         }
 
         @Override
-        public Integer queryMaxSimTime(String dbName) {
-            return 5;
-        }
-
-        @Override
         public List<FireJudgeResult> queryEventFullData(String dbName, int intervalSeconds, Integer simTime) {
             return Collections.emptyList();
         }
@@ -113,9 +114,5 @@ class ScenarioTaskReplayTest {
             return Collections.emptyList();
         }
 
-        @Override
-        public String queryRoomStartTime(String dbName) {
-            return "2026-01-01 00:00:00";
-        }
     }
 }

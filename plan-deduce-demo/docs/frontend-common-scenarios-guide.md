@@ -42,8 +42,8 @@ ws://localhost:8080/ws/planDeduce?sessionId=s1
 HTTP：
 
 ```text
-/plan/sendPlanDeduce?dbName=plandeduce&skip=0&sessionId=s1
-/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1
+/plan/sendPlanDeduce?dbName=1&skip=0&sessionId=s1
+/plan/startOrStop?dbName=1&flag=1&sessionId=s1
 ```
 
 前端应该期待：
@@ -57,7 +57,7 @@ HTTP：
 HTTP：
 
 ```text
-/plan/startOrStop?dbName=plandeduce&flag=0&sessionId=s1
+/plan/startOrStop?dbName=1&flag=0&sessionId=s1
 ```
 
 前端应该期待：
@@ -74,7 +74,7 @@ HTTP：
 HTTP：
 
 ```text
-/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1
+/plan/startOrStop?dbName=1&flag=1&sessionId=s1
 ```
 
 前端应该期待：
@@ -92,7 +92,7 @@ HTTP：
 HTTP：
 
 ```text
-/plan/speed?dbName=plandeduce&speed=3&sessionId=s1
+/plan/speed?dbName=1&speed=3&sessionId=s1
 ```
 
 前端应该期待：
@@ -110,7 +110,7 @@ HTTP：
 HTTP：
 
 ```text
-/plan/speed?dbName=plandeduce&speed=3&sessionId=s1
+/plan/speed?dbName=1&speed=3&sessionId=s1
 ```
 
 前端应该期待：
@@ -129,7 +129,7 @@ HTTP：
 HTTP：
 
 ```text
-/plan/speed?dbName=plandeduce&speed=0&sessionId=s1
+/plan/speed?dbName=1&speed=0&sessionId=s1
 ```
 
 前端应该期待：
@@ -148,7 +148,7 @@ HTTP：
 HTTP：
 
 ```text
-/plan/skip?dbName=plandeduce&skip=33&sessionId=s1
+/plan/skip?dbName=1&skip=33&sessionId=s1
 ```
 
 前端应该期待：
@@ -170,7 +170,7 @@ HTTP：
 HTTP：
 
 ```text
-/plan/fullSaveInterval?dbName=plandeduce&fullSaveIntervalSeconds=20&sessionId=s1
+/plan/fullSaveInterval?dbName=1&fullSaveIntervalSeconds=20&sessionId=s1
 ```
 
 前端应该期待：
@@ -187,7 +187,7 @@ HTTP：
 HTTP：
 
 ```text
-/plan/destroy?dbName=plandeduce&sessionId=s1
+/plan/destroy?dbName=1&sessionId=s1
 ```
 
 前端应该期待：
@@ -229,5 +229,5 @@ HTTP：
 
 1. 时间显示用 `deduceTime`，不要把 `realTime` 当业务时间。
 2. 当前任务实际只按 `sessionId` 隔离，不要试图用同一个 `sessionId` 管多个任务。
-3. 不要依赖 `dbName` 做任务隔离，当前它只是兼容字段。
+3. `dbName` 表示 ROOM_INFO 主键 ID；任务隔离仍然只看 `sessionId`。
 4. 不要在前端本地自增时间，应以后端推送为准。

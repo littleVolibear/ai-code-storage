@@ -6,6 +6,7 @@ import com.example.plandeduce.mapper.FireJudgeResultMapper;
 import com.example.plandeduce.mapper.RoomInfoMapper;
 import com.example.plandeduce.mapper.RoomObjectHisMapper;
 import com.example.plandeduce.model.FireJudgeResult;
+import com.example.plandeduce.model.ProgressTimeline;
 import com.example.plandeduce.model.RoomInfo;
 import com.example.plandeduce.model.RoomObjectHis;
 import com.example.plandeduce.service.ProgressDataService;
@@ -39,6 +40,12 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         this.roomObjectMapper = roomObjectMapper;
         this.fireJudgeResultMapper = fireJudgeResultMapper;
         this.roomInfoMapper = roomInfoMapper;
+    }
+
+    @Override
+    public ProgressTimeline queryProgressTimeline(String dbName) {
+        RoomInfo roomInfo = requireRoomInfo(dbName);
+        return new ProgressTimeline(roomInfo.getStartTime(), roomInfo.getTotalTime() == null ? 0 : roomInfo.getTotalTime());
     }
 
     /** 预热指定全量间隔下的 0 秒快照。 */
@@ -81,17 +88,6 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return cloneDataList(sortByRoomObjectId(new ArrayList<>(latestRowsByObjectId.values())), SOURCE_TYPE_INCREMENT);
     }
 
-    /** 查询最大业务秒点。 */
-    @Override
-    public Integer queryMaxSimTime(String dbName) {
-        LambdaQueryWrapper<RoomObjectHis> queryWrapper = Wrappers.<RoomObjectHis>lambdaQuery()
-                .select(RoomObjectHis::getSimTime)
-                .orderByDesc(RoomObjectHis::getSimTime)
-                .last("LIMIT 1");
-        RoomObjectHis latest = roomObjectMapper.selectOne(queryWrapper);
-        return latest == null || latest.getSimTime() == null ? 0 : latest.getSimTime();
-    }
-
     /** 读取事件全量快照。 */
     @Override
     public List<FireJudgeResult> queryEventFullData(String dbName, int intervalSeconds, Integer simTime) {
@@ -107,14 +103,22 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return cloneEventDataList(queryEventRowsBetween(fromExclusive, toInclusive));
     }
 
-    /** 返回开始时间配置。 */
-    @Override
-    public String queryRoomStartTime(String dbName) {
-        LambdaQueryWrapper<RoomInfo> queryWrapper = Wrappers.<RoomInfo>lambdaQuery()
-                .orderByAsc(RoomInfo::getId)
-                .last("LIMIT 1");
-        RoomInfo firstRow = roomInfoMapper.selectOne(queryWrapper);
-        return firstRow == null ? null : firstRow.getStartTime();
+    private RoomInfo requireRoomInfo(String dbName) {
+        if (dbName == null || dbName.trim().isEmpty()) {
+            throw new IllegalArgumentException("dbName 不能为空");
+        }
+
+        Long roomInfoId;
+        try {
+            roomInfoId = Long.valueOf(dbName);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("dbName 必须是 ROOM_INFO.id 的数字字符串");
+        }
+        RoomInfo roomInfo = roomInfoMapper.selectById(roomInfoId);
+        if (roomInfo == null) {
+            throw new IllegalArgumentException("未找到对应的 ROOM_INFO 记录: id=" + roomInfoId);
+        }
+        return roomInfo;
     }
 
     /** 获取指定秒点的对象全量快照。 */

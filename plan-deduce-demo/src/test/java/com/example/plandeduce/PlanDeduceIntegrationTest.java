@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.fail;
         }
 )
 class PlanDeduceIntegrationTest {
-    private static final String DB_NAME = "plandeduce";
+    private static final String DB_NAME = "1";
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
     private static final int PIECES_PER_SECOND = 3;
 

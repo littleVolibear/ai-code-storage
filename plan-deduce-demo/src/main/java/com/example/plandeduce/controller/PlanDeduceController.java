@@ -3,6 +3,7 @@ package com.example.plandeduce.controller;
 import com.example.plandeduce.service.ScenarioTask;
 import com.example.plandeduce.service.ScenarioTaskManager;
 import com.example.plandeduce.service.ProgressDataService;
+import com.example.plandeduce.model.ProgressTimeline;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +28,7 @@ public class PlanDeduceController {
     /**
      * 初始化任务，但不开始播放。
      * 前端拿到时间范围后，需要再调用 startOrStop(flag=1) 才会真正开始推送 WebSocket 数据。
-     * dbName 参数当前仅保留为兼容字段，不再驱动实际的数据源切换。
+     * dbName 表示 ROOM_INFO 主键 ID，对应唯一一条推演配置记录。
      */
     @GetMapping("/sendPlanDeduce")
     public InitProgressResponse sendPlanDeduce(@NotNull(message = "库名不能为空") @RequestParam String dbName,
@@ -38,8 +39,9 @@ public class PlanDeduceController {
             throw new IllegalArgumentException("当前任务正在执行，请先暂停或销毁后再初始化");
         }
         ScenarioTask task = existingTask != null ? existingTask : taskManager.getOrCreate(dbName, sessionId);
-        task.initialize(skip, null);
-        return new InitProgressResponse(dbName, sessionId, progressDataService.queryRoomStartTime(dbName), task.getMaxSimTime());
+        ProgressTimeline timeline = progressDataService.queryProgressTimeline(dbName);
+        task.initialize(skip, null, timeline.getEndTime());
+        return new InitProgressResponse(dbName, sessionId, timeline.getStartTime(), timeline.getEndTime());
     }
 
     /**
@@ -55,7 +57,8 @@ public class PlanDeduceController {
 
     /**
      * 修改当前任务倍速。
-     * speed=0 表示暂停；调成非 0 倍速时会走 setSpeedAndResume，必要时自动恢复播放。
+     * speed=0 表示暂停；
+     * speed>0 时会先更新倍速，如果当前未运行则自动开始或恢复播放，如果当前已在播放则仅影响后续推进速度。
      */
     @GetMapping("/speed")
     public void speed(@NotNull(message = "库名不能为空") @RequestParam String dbName,

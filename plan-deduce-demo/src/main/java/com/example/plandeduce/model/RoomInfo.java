@@ -12,8 +12,8 @@ public class RoomInfo {
     private Long id;
     @TableField("title")
     private String title;
+    @TableField("totalTime")
+    private Integer totalTime;
     @TableField("startTime")
     private String startTime;
-    @TableField("roomId")
-    private String roomId;
 }

@@ -38,7 +38,7 @@
 - `data`
 - `eventData`
 
-兼容字段校验：
+基础字段校验：
 
 - `fullData = []`
 - `incrementalData = []`

@@ -35,7 +35,7 @@
 ```json
 {
   "type": "PLAY",
-  "dbName": "plandeduce",
+  "dbName": "1",
   "sessionId": "demo-session",
   "realTime": 3,
   "deduceTime": 5,
@@ -56,9 +56,9 @@
     { "roomObjectId": 103, "simTime": 5, "realTime": 3 }
   ],
   "eventData": [
-    { "id": 9001, "roomId": "plandeduce", "simTime": 3, "realTime": 3 },
-    { "id": 9002, "roomId": "plandeduce", "simTime": 4, "realTime": 3 },
-    { "id": 9003, "roomId": "plandeduce", "simTime": 5, "realTime": 3 }
+    { "id": 9001, "roomId": "1", "simTime": 3, "realTime": 3 },
+    { "id": 9002, "roomId": "1", "simTime": 4, "realTime": 3 },
+    { "id": 9003, "roomId": "1", "simTime": 5, "realTime": 3 }
   ],
   "message": "当前真实时间 3 秒，推演时间 5 秒，返回第 3-5 秒增量数据",
   "maxSimTime": 1200

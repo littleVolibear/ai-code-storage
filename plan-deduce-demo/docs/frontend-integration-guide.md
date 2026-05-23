@@ -48,7 +48,7 @@ ws://localhost:8080/ws/planDeduce?sessionId=s1
 
 ### 2.2 `dbName`
 
-当前只是兼容字段，会原样带回 WebSocket 消息。
+表示 `ROOM_INFO` 主键 ID，会原样带回 WebSocket 消息。
 
 需要注意：
 
@@ -81,7 +81,7 @@ GET /plan/sendPlanDeduce
 示例：
 
 ```text
-/plan/sendPlanDeduce?dbName=plandeduce&skip=0&sessionId=s1
+/plan/sendPlanDeduce?dbName=1&skip=0&sessionId=s1
 ```
 
 真实行为：
@@ -94,7 +94,7 @@ HTTP 返回体示例：
 
 ```json
 {
-  "dbName": "plandeduce",
+  "dbName": "1",
   "sessionId": "s1",
   "startTime": "2026-01-01 00:00:00",
   "endTime": 1200
@@ -110,8 +110,8 @@ GET /plan/startOrStop
 示例：
 
 ```text
-/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1
-/plan/startOrStop?dbName=plandeduce&flag=0&sessionId=s1
+/plan/startOrStop?dbName=1&flag=1&sessionId=s1
+/plan/startOrStop?dbName=1&flag=0&sessionId=s1
 ```
 
 真实行为：
@@ -129,7 +129,7 @@ GET /plan/speed
 示例：
 
 ```text
-/plan/speed?dbName=plandeduce&speed=3&sessionId=s1
+/plan/speed?dbName=1&speed=3&sessionId=s1
 ```
 
 真实行为：
@@ -161,7 +161,7 @@ GET /plan/skip
 示例：
 
 ```text
-/plan/skip?dbName=plandeduce&skip=33&sessionId=s1
+/plan/skip?dbName=1&skip=33&sessionId=s1
 ```
 
 真实行为：
@@ -185,7 +185,7 @@ GET /plan/fullSaveInterval
 示例：
 
 ```text
-/plan/fullSaveInterval?dbName=plandeduce&fullSaveIntervalSeconds=20&sessionId=s1
+/plan/fullSaveInterval?dbName=1&fullSaveIntervalSeconds=20&sessionId=s1
 ```
 
 真实行为：
@@ -202,7 +202,7 @@ GET /plan/destroy
 示例：
 
 ```text
-/plan/destroy?dbName=plandeduce&sessionId=s1
+/plan/destroy?dbName=1&sessionId=s1
 ```
 
 真实行为：

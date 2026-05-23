@@ -1,11 +1,18 @@
 package com.example.plandeduce.service;
 
+import com.example.plandeduce.model.ProgressTimeline;
 import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.RoomObjectHis;
 
 import java.util.List;
 
 public interface ProgressDataService {
+    /**
+     * 查询进度条展示所需的时间范围。
+     * startTime 和 endTime 都来自同一条 ROOM_INFO 记录。
+     */
+    ProgressTimeline queryProgressTimeline(String dbName);
+
     /**
      * 预热指定全量间隔下的基础快照缓存。
      * 当前实现只保证 0 点全量快照可用，其他全量点按需生成并缓存。
@@ -31,11 +38,6 @@ public interface ProgressDataService {
     List<RoomObjectHis> querySnapshotIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive);
 
     /**
-     * 查询当前数据集可播放到的最大业务秒点。
-     */
-    Integer queryMaxSimTime(String dbName);
-
-    /**
      * 查询某个全量秒点上的事件数据。
      */
     List<FireJudgeResult> queryEventFullData(String dbName, int intervalSeconds, Integer simTime);
@@ -45,9 +47,4 @@ public interface ProgressDataService {
      */
     List<FireJudgeResult> queryEventIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive);
 
-    /**
-     * 查询当前推演任务的开始时间。
-     * 当前实现直接返回 ROOM_INFO 首条记录的开始时间。
-     */
-    String queryRoomStartTime(String dbName);
 }

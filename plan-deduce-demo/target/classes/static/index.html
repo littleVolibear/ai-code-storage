@@ -13,14 +13,14 @@
 <h2>推演进度条 Demo</h2>
 <p>先点“连接 WebSocket”，再点“初始化播放”。</p>
 <button onclick="connect()">连接 WebSocket</button>
-<button onclick="call('/plan/sendPlanDeduce?dbName=plandeduce&skip=0&sessionId=s1')">初始化播放</button>
-<button onclick="call('/plan/skip?dbName=plandeduce&skip=6&sessionId=s1')">跳转 6 秒</button>
-<button onclick="call('/plan/skip?dbName=plandeduce&skip=11&sessionId=s1')">跳转 11 秒</button>
-<button onclick="call('/plan/skip?dbName=plandeduce&skip=20&sessionId=s1')">跳转 20 秒</button>
-<button onclick="call('/plan/speed?dbName=plandeduce&speed=2&sessionId=s1')">2倍速</button>
-<button onclick="call('/plan/startOrStop?dbName=plandeduce&flag=0&sessionId=s1')">暂停</button>
-<button onclick="call('/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1')">开始</button>
-<button onclick="call('/plan/fullSaveInterval?dbName=plandeduce&fullSaveIntervalSeconds=20&sessionId=s1')">改为20秒全量</button>
+<button onclick="call('/plan/sendPlanDeduce?dbName=1&skip=0&sessionId=s1')">初始化播放</button>
+<button onclick="call('/plan/skip?dbName=1&skip=6&sessionId=s1')">跳转 6 秒</button>
+<button onclick="call('/plan/skip?dbName=1&skip=11&sessionId=s1')">跳转 11 秒</button>
+<button onclick="call('/plan/skip?dbName=1&skip=20&sessionId=s1')">跳转 20 秒</button>
+<button onclick="call('/plan/speed?dbName=1&speed=2&sessionId=s1')">2倍速</button>
+<button onclick="call('/plan/startOrStop?dbName=1&flag=0&sessionId=s1')">暂停</button>
+<button onclick="call('/plan/startOrStop?dbName=1&flag=1&sessionId=s1')">开始</button>
+<button onclick="call('/plan/fullSaveInterval?dbName=1&fullSaveIntervalSeconds=20&sessionId=s1')">改为20秒全量</button>
 <pre id="log"></pre>
 <script>
     let ws;

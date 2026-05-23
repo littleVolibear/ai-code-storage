@@ -33,7 +33,7 @@ curl "http://localhost:8080/plan/..."
 
 当前任务只按 `sessionId` 隔离。
 
-`dbName` 当前只是兼容字段：
+`dbName` 当前表示 `ROOM_INFO.id`：
 
 - 会参与查询参数和回包
 - 但不会作为 `ScenarioTaskManager` 的 key
@@ -76,8 +76,8 @@ curl "http://localhost:8080/plan/..."
 ### 场景一：初始化后开始播放
 
 ```bash
-curl "http://localhost:8080/plan/sendPlanDeduce?dbName=plandeduce&skip=0&sessionId=s1"
-curl "http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1"
+curl "http://localhost:8080/plan/sendPlanDeduce?dbName=1&skip=0&sessionId=s1"
+curl "http://localhost:8080/plan/startOrStop?dbName=1&flag=1&sessionId=s1"
 ```
 
 期望：
@@ -89,7 +89,7 @@ curl "http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=
 ### 场景二：暂停
 
 ```bash
-curl "http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=0&sessionId=s1"
+curl "http://localhost:8080/plan/startOrStop?dbName=1&flag=0&sessionId=s1"
 ```
 
 期望：
@@ -101,7 +101,7 @@ curl "http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=0&sessionId=
 ### 场景三：暂停后恢复
 
 ```bash
-curl "http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1"
+curl "http://localhost:8080/plan/startOrStop?dbName=1&flag=1&sessionId=s1"
 ```
 
 期望：
@@ -112,7 +112,7 @@ curl "http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=
 ### 场景四：播放中切换倍速
 
 ```bash
-curl "http://localhost:8080/plan/speed?dbName=plandeduce&speed=3&sessionId=s1"
+curl "http://localhost:8080/plan/speed?dbName=1&speed=3&sessionId=s1"
 ```
 
 期望：
@@ -124,7 +124,7 @@ curl "http://localhost:8080/plan/speed?dbName=plandeduce&speed=3&sessionId=s1"
 ### 场景五：暂停后调成 3 倍速
 
 ```bash
-curl "http://localhost:8080/plan/speed?dbName=plandeduce&speed=3&sessionId=s1"
+curl "http://localhost:8080/plan/speed?dbName=1&speed=3&sessionId=s1"
 ```
 
 期望：
@@ -136,7 +136,7 @@ curl "http://localhost:8080/plan/speed?dbName=plandeduce&speed=3&sessionId=s1"
 ### 场景六：使用 `speed=0` 作为暂停
 
 ```bash
-curl "http://localhost:8080/plan/speed?dbName=plandeduce&speed=0&sessionId=s1"
+curl "http://localhost:8080/plan/speed?dbName=1&speed=0&sessionId=s1"
 ```
 
 期望：
@@ -148,7 +148,7 @@ curl "http://localhost:8080/plan/speed?dbName=plandeduce&speed=0&sessionId=s1"
 ### 场景七：跳转到指定秒点
 
 ```bash
-curl "http://localhost:8080/plan/skip?dbName=plandeduce&skip=13&sessionId=s1"
+curl "http://localhost:8080/plan/skip?dbName=1&skip=13&sessionId=s1"
 ```
 
 期望：
@@ -167,8 +167,8 @@ curl "http://localhost:8080/plan/skip?dbName=plandeduce&skip=13&sessionId=s1"
 ### 场景八：修改全量间隔
 
 ```bash
-curl "http://localhost:8080/plan/fullSaveInterval?dbName=plandeduce&fullSaveIntervalSeconds=20&sessionId=s1"
-curl "http://localhost:8080/plan/skip?dbName=plandeduce&skip=33&sessionId=s1"
+curl "http://localhost:8080/plan/fullSaveInterval?dbName=1&fullSaveIntervalSeconds=20&sessionId=s1"
+curl "http://localhost:8080/plan/skip?dbName=1&skip=33&sessionId=s1"
 ```
 
 期望：
@@ -180,9 +180,9 @@ curl "http://localhost:8080/plan/skip?dbName=plandeduce&skip=33&sessionId=s1"
 ### 场景九：播放结束
 
 ```bash
-curl "http://localhost:8080/plan/sendPlanDeduce?dbName=plandeduce&skip=1198&sessionId=s1"
-curl "http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1"
-curl "http://localhost:8080/plan/speed?dbName=plandeduce&speed=3&sessionId=s1"
+curl "http://localhost:8080/plan/sendPlanDeduce?dbName=1&skip=1198&sessionId=s1"
+curl "http://localhost:8080/plan/startOrStop?dbName=1&flag=1&sessionId=s1"
+curl "http://localhost:8080/plan/speed?dbName=1&speed=3&sessionId=s1"
 ```
 
 期望：

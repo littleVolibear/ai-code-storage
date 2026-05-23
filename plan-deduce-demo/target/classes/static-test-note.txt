@@ -1,8 +1,8 @@
 测试地址：
 WebSocket: ws://localhost:8080/ws/planDeduce?sessionId=s1
-初始化: http://localhost:8080/plan/sendPlanDeduce?dbName=plandeduce&skip=0&sessionId=s1
-跳转6秒: http://localhost:8080/plan/skip?dbName=plandeduce&skip=6&sessionId=s1
-跳转11秒: http://localhost:8080/plan/skip?dbName=plandeduce&skip=11&sessionId=s1
-设置2倍速: http://localhost:8080/plan/speed?dbName=plandeduce&speed=2&sessionId=s1
-暂停: http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=0&sessionId=s1
-开始: http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1
+初始化: http://localhost:8080/plan/sendPlanDeduce?dbName=1&skip=0&sessionId=s1
+跳转6秒: http://localhost:8080/plan/skip?dbName=1&skip=6&sessionId=s1
+跳转11秒: http://localhost:8080/plan/skip?dbName=1&skip=11&sessionId=s1
+设置2倍速: http://localhost:8080/plan/speed?dbName=1&speed=2&sessionId=s1
+暂停: http://localhost:8080/plan/startOrStop?dbName=1&flag=0&sessionId=s1
+开始: http://localhost:8080/plan/startOrStop?dbName=1&flag=1&sessionId=s1
