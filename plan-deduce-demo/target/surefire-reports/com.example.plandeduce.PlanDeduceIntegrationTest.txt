@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.example.plandeduce.PlanDeduceIntegrationTest
 -------------------------------------------------------------------------------
-Tests run: 26, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 84.965 s - in com.example.plandeduce.PlanDeduceIntegrationTest
+Tests run: 29, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 86.194 s - in com.example.plandeduce.PlanDeduceIntegrationTest

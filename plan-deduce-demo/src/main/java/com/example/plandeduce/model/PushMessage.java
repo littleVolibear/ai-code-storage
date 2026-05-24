@@ -47,7 +47,7 @@ public class PushMessage {
      * }
      */
     private String type; // 消息类型，如 INIT/PLAY/PAUSE/SKIP
-    private String dbName; // ROOM_INFO 主键 ID，对应本次推演的数据集
+    private String dbName; // 动态数据库标识，对应本次推演的数据集
     private String sessionId; // 当前前端会话标识
     private Integer realTime; // 当前真实时间轴位置，不受倍速跳跃影响
     private Integer deduceTime; // 当前推演时间轴位置，受倍速和跳点影响

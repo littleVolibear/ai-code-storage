@@ -3,6 +3,7 @@ package com.example.plandeduce.controller;
 import com.example.plandeduce.service.ScenarioTask;
 import com.example.plandeduce.service.ScenarioTaskManager;
 import com.example.plandeduce.service.ProgressDataService;
+import com.example.plandeduce.model.ProgressQueryContext;
 import com.example.plandeduce.model.ProgressTimeline;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,7 +29,8 @@ public class PlanDeduceController {
     /**
      * 初始化任务，但不开始播放。
      * 前端拿到时间范围后，需要再调用 startOrStop(flag=1) 才会真正开始推送 WebSocket 数据。
-     * dbName 表示 ROOM_INFO 主键 ID，对应唯一一条推演配置记录。
+     * dbName 表示初始化时选定的数据库连接标识；
+     * 当前实现约定它同时与所选库中的 ROOM_INFO.id 保持一致。
      */
     @GetMapping("/sendPlanDeduce")
     public InitProgressResponse sendPlanDeduce(@NotNull(message = "库名不能为空") @RequestParam String dbName,
@@ -39,7 +41,7 @@ public class PlanDeduceController {
             throw new IllegalArgumentException("当前任务正在执行，请先暂停或销毁后再初始化");
         }
         ScenarioTask task = existingTask != null ? existingTask : taskManager.getOrCreate(dbName, sessionId);
-        ProgressTimeline timeline = progressDataService.queryProgressTimeline(dbName);
+        ProgressTimeline timeline = progressDataService.queryProgressTimeline(new ProgressQueryContext(dbName));
         task.initialize(skip, null, timeline.getEndTime());
         return new InitProgressResponse(dbName, sessionId, timeline.getStartTime(), timeline.getEndTime());
     }
@@ -76,8 +78,7 @@ public class PlanDeduceController {
     @GetMapping("/startOrStop")
     public void startOrStop(@NotNull(message = "库名不能为空") @RequestParam String dbName,
                             @NotNull(message = "开始暂停标识不能为空") @RequestParam Integer flag,
-                            @RequestParam(defaultValue = "default") String sessionId,
-                            @RequestParam(required = false) String uuid) {
+                            @RequestParam(defaultValue = "default") String sessionId) {
         ScenarioTask task = taskManager.getOrCreate(dbName, sessionId);
         task.startOrStop(flag);
     }

@@ -2,6 +2,9 @@ package com.example.plandeduce.service;
 
 import com.example.plandeduce.config.PlanDeduceProperties;
 import com.example.plandeduce.model.FireJudgeResult;
+import com.example.plandeduce.model.ProgressQueryContext;
+import com.example.plandeduce.model.ProgressRangeQuery;
+import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.model.ProgressTimeline;
 import com.example.plandeduce.model.PushMessage;
 import com.example.plandeduce.model.RoomObjectHis;
@@ -81,36 +84,36 @@ class ScenarioTaskReplayTest {
 
     private static class FakeProgressDataService implements ProgressDataService {
         @Override
-        public ProgressTimeline queryProgressTimeline(String dbName) {
+        public ProgressTimeline queryProgressTimeline(ProgressQueryContext queryContext) {
             return new ProgressTimeline("2026-01-01 00:00:00", 5);
         }
 
         @Override
-        public void preloadFullSnapshots(String dbName, int intervalSeconds) {
+        public void preloadFullSnapshots(ProgressSnapshotQuery snapshotQuery) {
         }
 
         @Override
-        public List<RoomObjectHis> queryCachedFullData(String dbName, int intervalSeconds, int simTime) {
+        public List<RoomObjectHis> queryCachedFullData(ProgressSnapshotQuery snapshotQuery) {
             return Collections.emptyList();
         }
 
         @Override
-        public List<RoomObjectHis> queryIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
+        public List<RoomObjectHis> queryIncrementalData(ProgressRangeQuery rangeQuery) {
             return Collections.emptyList();
         }
 
         @Override
-        public List<RoomObjectHis> querySnapshotIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
+        public List<RoomObjectHis> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
             return Collections.emptyList();
         }
 
         @Override
-        public List<FireJudgeResult> queryEventFullData(String dbName, int intervalSeconds, Integer simTime) {
+        public List<FireJudgeResult> queryEventFullData(ProgressSnapshotQuery snapshotQuery) {
             return Collections.emptyList();
         }
 
         @Override
-        public List<FireJudgeResult> queryEventIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
+        public List<FireJudgeResult> queryEventIncrementalData(ProgressRangeQuery rangeQuery) {
             return Collections.emptyList();
         }
 

@@ -2,6 +2,7 @@ package com.example.plandeduce.service;
 
 import com.example.plandeduce.config.PlanDeduceProperties;
 import com.example.plandeduce.websocket.PlanDeducePush;
+import lombok.Getter;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
@@ -18,6 +19,11 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public class ScenarioTaskManager {
     private final Map<String, ScenarioTask> taskMap = new ConcurrentHashMap<>();
+    /**
+     * -- GETTER --
+     *  提供统一线程池给 ScenarioTask 创建定时任务使用。
+     */
+    @Getter
     private final ScheduledExecutorService executor;
     private final ProgressDataService progressDataService;
     private final PlanDeducePush pushService;
@@ -33,18 +39,11 @@ public class ScenarioTaskManager {
     }
 
     /**
-     * 提供统一线程池给 ScenarioTask 创建定时任务使用。
-     */
-    public ScheduledExecutorService getExecutor() {
-        return executor;
-    }
-
-    /**
      * 获取或创建任务。
-     * 当前项目已经固定为单库运行，因此任务只按 sessionId 隔离。
+     * 动态数据库场景下，任务按 dbName + sessionId 联合隔离。
      */
     public ScenarioTask getOrCreate(String dbName, String sessionId) {
-        String key = buildKey(sessionId);
+        String key = buildKey(dbName, sessionId);
         return taskMap.computeIfAbsent(key, k -> new ScenarioTask(
                 dbName,
                 sessionId,
@@ -59,7 +58,7 @@ public class ScenarioTaskManager {
      * 仅读取已存在任务，不会创建新任务。
      */
     public ScenarioTask get(String dbName, String sessionId) {
-        return taskMap.get(buildKey(sessionId));
+        return taskMap.get(buildKey(dbName, sessionId));
     }
 
     /**
@@ -67,17 +66,17 @@ public class ScenarioTaskManager {
      * 这个动作会真正停止定时推进，不是单纯把任务从 Map 删除。
      */
     public void remove(String dbName, String sessionId) {
-        ScenarioTask task = taskMap.remove(buildKey(sessionId));
+        ScenarioTask task = taskMap.remove(buildKey(dbName, sessionId));
         if (task != null) {
             task.stopAndDestroy();
         }
     }
 
     /**
-     * 固定单库后，任务唯一键只保留 sessionId。
+     * 任务唯一键按 dbName + sessionId 组合，避免跨库串任务。
      */
-    private String buildKey(String sessionId) {
-        return sessionId;
+    private String buildKey(String dbName, String sessionId) {
+        return dbName + "::" + sessionId;
     }
 
     /**

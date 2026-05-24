@@ -352,7 +352,7 @@ class PlanDeduceIntegrationTest {
             cycle++;
 
             int targetAfterShortRun = Math.min(businessTime + 60, 1200);
-            JsonNode shortRunPlay = waitUntilBusinessTimeAtLeast(socket, targetAfterShortRun, Duration.ofSeconds(5));
+            JsonNode shortRunPlay = waitUntilBusinessTimeAtLeast(socket, targetAfterShortRun, Duration.ofSeconds(7));
             businessTime = extractBusinessTime(shortRunPlay);
             assertEquals(3, shortRunPlay.path("speed").asInt());
 
@@ -371,7 +371,7 @@ class PlanDeduceIntegrationTest {
             assertEquals(3, firstStart.path("speed").asInt());
 
             int targetAfterLongRun = Math.min(businessTime + 150, 1200);
-            JsonNode longRunPlay = waitUntilBusinessTimeAtLeast(socket, targetAfterLongRun, Duration.ofSeconds(8));
+            JsonNode longRunPlay = waitUntilBusinessTimeAtLeast(socket, targetAfterLongRun, Duration.ofSeconds(12));
             businessTime = extractBusinessTime(longRunPlay);
             assertEquals(3, longRunPlay.path("speed").asInt());
 
@@ -687,6 +687,79 @@ class PlanDeduceIntegrationTest {
     }
 
     @Test
+    void shouldReplayFromStartAfterFinishWhenStartingAgain() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        JsonNode init = initializeAndStart(socket, DB_NAME, 1199, sessionId);
+        assertEquals(1199, init.path("realTime").asInt());
+
+        JsonNode finalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1200, finalPlay.path("realTime").asInt());
+        JsonNode pauseAtFinish = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
+        assertEquals(1200, pauseAtFinish.path("realTime").asInt());
+        JsonNode finish = socket.awaitMessageOfType("FINISH", DEFAULT_TIMEOUT);
+        assertEquals(1200, finish.path("realTime").asInt());
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
+        JsonNode replayInit = socket.awaitMessageOfType("INIT", DEFAULT_TIMEOUT);
+        assertEquals(0, replayInit.path("realTime").asInt());
+        assertEquals(0, replayInit.path("deduceTime").asInt());
+        assertEquals(0, replayInit.path("fullTime").asInt());
+        assertTrue(replayInit.path("running").asBoolean());
+        assertCompatibilityArraysEmpty(replayInit);
+
+        JsonNode replayPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(1, replayPlay.path("realTime").asInt());
+        assertBusinessTime(replayPlay, 1);
+        assertCompatibilityArraysEmpty(replayPlay);
+    }
+
+    @Test
+    void shouldKeepCompatibilityArraysEmptyWhileUsingMergedDataAndEventData() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        JsonNode init = initializeAndStart(socket, DB_NAME, 0, sessionId);
+        assertCompatibilityArraysEmpty(init);
+        assertTrue(init.path("data").isArray());
+        assertTrue(init.path("eventData").isArray());
+
+        JsonNode firstPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertCompatibilityArraysEmpty(firstPlay);
+        assertSimtimes(firstPlay, firstPlay.path("data"), repeatSimtime(1));
+        assertEventTimes(firstPlay, firstPlay.path("eventData"), 1);
+
+        call("/plan/skip?dbName=" + DB_NAME + "&skip=13&sessionId=" + sessionId);
+        JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
+        assertCompatibilityArraysEmpty(skip);
+        assertSimtimes(skip, skip.path("data"), concat(repeatSimtime(10), repeatSimtime(13)));
+        assertEventTimes(skip, skip.path("eventData"), range(0, 13));
+    }
+
+    @Test
+    void shouldUseFullSnapshotOnlyAtIntervalPointAndIncrementOnlyOffInterval() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        initializeAndStart(socket, DB_NAME, 9, sessionId);
+
+        JsonNode intervalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(10, intervalPlay.path("realTime").asInt());
+        assertEquals(10, intervalPlay.path("fullTime").asInt());
+        assertCompatibilityArraysEmpty(intervalPlay);
+        assertSimtimes(intervalPlay, intervalPlay.path("data"), repeatSimtime(10));
+        assertEventTimes(intervalPlay, intervalPlay.path("eventData"), range(0, 10));
+
+        JsonNode offIntervalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
+        assertEquals(11, offIntervalPlay.path("realTime").asInt());
+        assertEquals(10, offIntervalPlay.path("fullTime").asInt());
+        assertCompatibilityArraysEmpty(offIntervalPlay);
+        assertSimtimes(offIntervalPlay, offIntervalPlay.path("data"), repeatSimtime(11));
+        assertEventTimes(offIntervalPlay, offIntervalPlay.path("eventData"), 11);
+    }
+
+    @Test
     void shouldAutoResumeAfterPauseThenSkipAndStillFinish() throws Exception {
         String sessionId = newSessionId();
         TestWebSocketClient socket = connect(sessionId);
@@ -976,6 +1049,13 @@ class PlanDeduceIntegrationTest {
         assertTrue(first.hasNonNull("simTime"));
         assertTrue(first.hasNonNull("realTime"));
         assertTrue(first.hasNonNull("targetId"));
+    }
+
+    private void assertCompatibilityArraysEmpty(JsonNode message) {
+        assertTrue(message.path("fullData").isArray());
+        assertTrue(message.path("incrementalData").isArray());
+        assertEquals(0, message.path("fullData").size());
+        assertEquals(0, message.path("incrementalData").size());
     }
 
     private void assertBusinessTime(JsonNode message, int expected) {

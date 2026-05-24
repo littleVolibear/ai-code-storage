@@ -2,9 +2,13 @@ package com.example.plandeduce.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.example.plandeduce.config.DynamicDataSourceContextHolder;
 import com.example.plandeduce.mapper.FireJudgeResultMapper;
 import com.example.plandeduce.mapper.RoomInfoMapper;
 import com.example.plandeduce.mapper.RoomObjectHisMapper;
+import com.example.plandeduce.model.ProgressQueryContext;
+import com.example.plandeduce.model.ProgressRangeQuery;
+import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.ProgressTimeline;
 import com.example.plandeduce.model.RoomInfo;
@@ -14,7 +18,6 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +25,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 /**
- * 单库快照查询与缓存实现。
+ * 动态数据源下的快照查询与缓存实现。
+ * 所有缓存都必须按 dbName 隔离，避免不同数据库之间串数据。
  */
 public class ProgressDataServiceImpl implements ProgressDataService {
     private static final String SOURCE_TYPE_FULL = "FULL";
@@ -31,8 +35,10 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     private final RoomObjectHisMapper roomObjectMapper;
     private final FireJudgeResultMapper fireJudgeResultMapper;
     private final RoomInfoMapper roomInfoMapper;
-    private final Map<Integer, Map<Integer, List<RoomObjectHis>>> fullSnapshotCache = new ConcurrentHashMap<>();
-    private final Map<Integer, Map<Integer, List<FireJudgeResult>>> eventFullSnapshotCache = new ConcurrentHashMap<>();
+    /** 对象全量快照缓存：第一层 key=dbName，第二层 key=intervalSeconds，第三层 key=simTime，value=该秒点的对象全量快照列表。 */
+    private final Map<String, Map<Integer, Map<Integer, List<RoomObjectHis>>>> fullSnapshotCache = new ConcurrentHashMap<>();
+    /** 事件全量快照缓存：第一层 key=dbName，第二层 key=intervalSeconds，第三层 key=simTime，value=该秒点的事件全量快照列表。 */
+    private final Map<String, Map<Integer, Map<Integer, List<FireJudgeResult>>>> eventFullSnapshotCache = new ConcurrentHashMap<>();
 
     public ProgressDataServiceImpl(RoomObjectHisMapper roomObjectMapper,
                                    FireJudgeResultMapper fireJudgeResultMapper,
@@ -43,64 +49,106 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     }
 
     @Override
-    public ProgressTimeline queryProgressTimeline(String dbName) {
-        RoomInfo roomInfo = requireRoomInfo(dbName);
-        return new ProgressTimeline(roomInfo.getStartTime(), roomInfo.getTotalTime() == null ? 0 : roomInfo.getTotalTime());
+    public ProgressTimeline queryProgressTimeline(ProgressQueryContext queryContext) {
+        String dbName = queryContext.getDbName();
+        DynamicDataSourceContextHolder.set(dbName);
+        try {
+            RoomInfo roomInfo = requireRoomInfo(dbName);
+            return new ProgressTimeline(roomInfo.getStartTime(), minutesToSeconds(roomInfo.getTotalTime()));
+        } finally {
+            DynamicDataSourceContextHolder.clear();
+        }
     }
 
     /** 预热指定全量间隔下的 0 秒快照。 */
     @Override
-    public void preloadFullSnapshots(String dbName, int intervalSeconds) {
-        if (intervalSeconds <= 0) {
-            throw new IllegalArgumentException("全量保存间隔必须大于 0 秒");
+    public void preloadFullSnapshots(ProgressSnapshotQuery snapshotQuery) {
+        String dbName = snapshotQuery.getDbName();
+        DynamicDataSourceContextHolder.set(dbName);
+        try {
+            ensureSnapshotCacheInitialized(snapshotQuery);
+        } finally {
+            DynamicDataSourceContextHolder.clear();
         }
-        Map<Integer, List<RoomObjectHis>> roomObjectSnapshotCache = fullSnapshotCache.computeIfAbsent(intervalSeconds, key -> new ConcurrentHashMap<>());
-        roomObjectSnapshotCache.computeIfAbsent(0, key -> buildZeroPointSnapshot());
-        Map<Integer, List<FireJudgeResult>> eventSnapshotCache = eventFullSnapshotCache.computeIfAbsent(intervalSeconds, key -> new ConcurrentHashMap<>());
-        eventSnapshotCache.computeIfAbsent(0, key -> buildZeroPointEventSnapshot());
     }
 
     /** 读取全量秒点快照，未命中时现场构造并回填缓存。 */
     @Override
-    public List<RoomObjectHis> queryCachedFullData(String dbName, int intervalSeconds, int simTime) {
-        return cloneDataList(getFullSnapshotAtCachePoint(intervalSeconds, Math.max(simTime, 0)), SOURCE_TYPE_FULL);
+    public List<RoomObjectHis> queryCachedFullData(ProgressSnapshotQuery snapshotQuery) {
+        String dbName = snapshotQuery.getDbName();
+        DynamicDataSourceContextHolder.set(dbName);
+        try {
+            return cloneDataList(getFullSnapshotAtCachePoint(snapshotQuery), SOURCE_TYPE_FULL);
+        } finally {
+            DynamicDataSourceContextHolder.clear();
+        }
     }
 
     /** 查询播放帧使用的区间原始数据。 */
     @Override
-    public List<RoomObjectHis> queryIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
-        if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
-            return new ArrayList<>();
+    public List<RoomObjectHis> queryIncrementalData(ProgressRangeQuery rangeQuery) {
+        String dbName = rangeQuery.getDbName();
+        Integer fromExclusive = rangeQuery.getFromExclusive();
+        Integer toInclusive = rangeQuery.getToInclusive();
+        DynamicDataSourceContextHolder.set(dbName);
+        try {
+            if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
+                return new ArrayList<>();
+            }
+            return cloneDataList(queryRowsBetween(fromExclusive, toInclusive), SOURCE_TYPE_INCREMENT);
+        } finally {
+            DynamicDataSourceContextHolder.clear();
         }
-        return cloneDataList(queryRowsBetween(fromExclusive, toInclusive), SOURCE_TYPE_INCREMENT);
     }
 
     /** 查询快照类消息使用的区间最终态补丁。 */
     @Override
-    public List<RoomObjectHis> querySnapshotIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
-        if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
-            return new ArrayList<>();
+    public List<RoomObjectHis> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
+        String dbName = rangeQuery.getDbName();
+        Integer fromExclusive = rangeQuery.getFromExclusive();
+        Integer toInclusive = rangeQuery.getToInclusive();
+        DynamicDataSourceContextHolder.set(dbName);
+        try {
+            if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
+                return new ArrayList<>();
+            }
+            Map<Integer, RoomObjectHis> latestRowsByObjectId = new LinkedHashMap<>();
+            for (RoomObjectHis row : queryRowsBetween(fromExclusive, toInclusive)) {
+                latestRowsByObjectId.put(row.getRoomObjectId(), row);
+            }
+            return cloneDataList(sortByRoomObjectId(new ArrayList<>(latestRowsByObjectId.values())), SOURCE_TYPE_INCREMENT);
+        } finally {
+            DynamicDataSourceContextHolder.clear();
         }
-        Map<Integer, RoomObjectHis> latestRowsByObjectId = new LinkedHashMap<>();
-        for (RoomObjectHis row : queryRowsBetween(fromExclusive, toInclusive)) {
-            latestRowsByObjectId.put(row.getRoomObjectId(), row);
-        }
-        return cloneDataList(sortByRoomObjectId(new ArrayList<>(latestRowsByObjectId.values())), SOURCE_TYPE_INCREMENT);
     }
 
     /** 读取事件全量快照。 */
     @Override
-    public List<FireJudgeResult> queryEventFullData(String dbName, int intervalSeconds, Integer simTime) {
-        return cloneEventDataList(getEventFullSnapshotAtCachePoint(intervalSeconds, Math.max(simTime == null ? 0 : simTime, 0)));
+    public List<FireJudgeResult> queryEventFullData(ProgressSnapshotQuery snapshotQuery) {
+        String dbName = snapshotQuery.getDbName();
+        DynamicDataSourceContextHolder.set(dbName);
+        try {
+            return cloneEventDataList(getEventFullSnapshotAtCachePoint(snapshotQuery));
+        } finally {
+            DynamicDataSourceContextHolder.clear();
+        }
     }
 
     /** 查询事件增量区间。 */
     @Override
-    public List<FireJudgeResult> queryEventIncrementalData(String dbName, Integer fromExclusive, Integer toInclusive) {
-        if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
-            return new ArrayList<>();
+    public List<FireJudgeResult> queryEventIncrementalData(ProgressRangeQuery rangeQuery) {
+        String dbName = rangeQuery.getDbName();
+        Integer fromExclusive = rangeQuery.getFromExclusive();
+        Integer toInclusive = rangeQuery.getToInclusive();
+        DynamicDataSourceContextHolder.set(dbName);
+        try {
+            if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
+                return new ArrayList<>();
+            }
+            return cloneEventDataList(queryEventRowsBetween(fromExclusive, toInclusive));
+        } finally {
+            DynamicDataSourceContextHolder.clear();
         }
-        return cloneEventDataList(queryEventRowsBetween(fromExclusive, toInclusive));
     }
 
     private RoomInfo requireRoomInfo(String dbName) {
@@ -112,7 +160,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         try {
             roomInfoId = Long.valueOf(dbName);
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("dbName 必须是 ROOM_INFO.id 的数字字符串");
+            throw new IllegalArgumentException("dbName 必须是动态数据库标识，同时满足 ROOM_INFO.id 的数字字符串约定");
         }
         RoomInfo roomInfo = roomInfoMapper.selectById(roomInfoId);
         if (roomInfo == null) {
@@ -121,41 +169,58 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return roomInfo;
     }
 
+    private Integer minutesToSeconds(Integer totalTimeMinutes) {
+        if (totalTimeMinutes == null || totalTimeMinutes <= 0) {
+            return 0;
+        }
+        return Math.multiplyExact(totalTimeMinutes, 60);
+    }
+
     /** 获取指定秒点的对象全量快照。 */
-    private List<RoomObjectHis> getFullSnapshotAtCachePoint(int intervalSeconds, int simTime) {
-        preloadFullSnapshots(null, intervalSeconds);
-        Map<Integer, List<RoomObjectHis>> snapshotCacheByTime = fullSnapshotCache.computeIfAbsent(intervalSeconds, key -> new ConcurrentHashMap<>());
+    private List<RoomObjectHis> getFullSnapshotAtCachePoint(ProgressSnapshotQuery snapshotQuery) {
+        ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
+        ensureSnapshotCacheInitialized(normalizedSnapshotQuery);
+        Map<Integer, List<RoomObjectHis>> snapshotCacheByTime = getRoomObjectCacheByTime(normalizedSnapshotQuery);
+        int simTime = normalizedSnapshotQuery.getSimTime();
         List<RoomObjectHis> cachedSnapshot = snapshotCacheByTime.get(simTime);
         if (cachedSnapshot != null) {
             return cachedSnapshot;
         }
-        List<RoomObjectHis> builtSnapshot = buildFullSnapshotAtPoint(intervalSeconds, simTime);
+        List<RoomObjectHis> builtSnapshot = buildFullSnapshotAtPoint(normalizedSnapshotQuery);
         List<RoomObjectHis> existingSnapshot = snapshotCacheByTime.putIfAbsent(simTime, builtSnapshot);
         return existingSnapshot != null ? existingSnapshot : builtSnapshot;
     }
 
     /** 获取指定秒点的事件全量快照。 */
-    private List<FireJudgeResult> getEventFullSnapshotAtCachePoint(int intervalSeconds, int simTime) {
-        preloadFullSnapshots(null, intervalSeconds);
-        Map<Integer, List<FireJudgeResult>> snapshotCacheByTime = eventFullSnapshotCache.computeIfAbsent(intervalSeconds, key -> new ConcurrentHashMap<>());
+    private List<FireJudgeResult> getEventFullSnapshotAtCachePoint(ProgressSnapshotQuery snapshotQuery) {
+        ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
+        ensureSnapshotCacheInitialized(normalizedSnapshotQuery);
+        Map<Integer, List<FireJudgeResult>> snapshotCacheByTime = getEventCacheByTime(normalizedSnapshotQuery);
+        int simTime = normalizedSnapshotQuery.getSimTime();
         List<FireJudgeResult> cachedSnapshot = snapshotCacheByTime.get(simTime);
         if (cachedSnapshot != null) {
             return cachedSnapshot;
         }
-        List<FireJudgeResult> builtSnapshot = buildEventFullSnapshotAtPoint(intervalSeconds, simTime);
+        List<FireJudgeResult> builtSnapshot = buildEventFullSnapshotAtPoint(normalizedSnapshotQuery);
         List<FireJudgeResult> existingSnapshot = snapshotCacheByTime.putIfAbsent(simTime, builtSnapshot);
         return existingSnapshot != null ? existingSnapshot : builtSnapshot;
     }
 
     /** 基于上一个全量点滚动构造事件快照。 */
-    private List<FireJudgeResult> buildEventFullSnapshotAtPoint(int intervalSeconds, int simTime) {
-        int targetTime = Math.max(simTime, 0);
+    private List<FireJudgeResult> buildEventFullSnapshotAtPoint(ProgressSnapshotQuery snapshotQuery) {
+        ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
+        int targetTime = normalizedSnapshotQuery.getSimTime();
         if (targetTime == 0) {
             return buildZeroPointEventSnapshot();
         }
-        int interval = Math.max(intervalSeconds, 1);
+        int interval = Math.max(normalizedSnapshotQuery.getIntervalSeconds(), 1);
         int previousFullTime = Math.max(targetTime - interval, 0);
-        List<FireJudgeResult> merged = new ArrayList<>(getEventFullSnapshotAtCachePoint(intervalSeconds, previousFullTime));
+        ProgressSnapshotQuery previousSnapshotQuery = new ProgressSnapshotQuery(
+                normalizedSnapshotQuery.getDbName(),
+                normalizedSnapshotQuery.getIntervalSeconds(),
+                previousFullTime
+        );
+        List<FireJudgeResult> merged = new ArrayList<>(getEventFullSnapshotAtCachePoint(previousSnapshotQuery));
         merged.addAll(queryEventRowsBetween(previousFullTime, targetTime));
         return merged;
     }
@@ -166,14 +231,20 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     }
 
     /** 基于上一个全量点滚动构造对象快照。 */
-    private List<RoomObjectHis> buildFullSnapshotAtPoint(int intervalSeconds, int simTime) {
-        int targetTime = Math.max(simTime, 0);
+    private List<RoomObjectHis> buildFullSnapshotAtPoint(ProgressSnapshotQuery snapshotQuery) {
+        ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
+        int targetTime = normalizedSnapshotQuery.getSimTime();
         if (targetTime == 0) {
             return buildZeroPointSnapshot();
         }
-        int interval = Math.max(intervalSeconds, 1);
+        int interval = Math.max(normalizedSnapshotQuery.getIntervalSeconds(), 1);
         int previousFullTime = Math.max(targetTime - interval, 0);
-        Map<Integer, RoomObjectHis> mergedRowsByObjectId = indexByRoomObjectId(getFullSnapshotAtCachePoint(intervalSeconds, previousFullTime));
+        ProgressSnapshotQuery previousSnapshotQuery = new ProgressSnapshotQuery(
+                normalizedSnapshotQuery.getDbName(),
+                normalizedSnapshotQuery.getIntervalSeconds(),
+                previousFullTime
+        );
+        Map<Integer, RoomObjectHis> mergedRowsByObjectId = indexByRoomObjectId(getFullSnapshotAtCachePoint(previousSnapshotQuery));
         for (RoomObjectHis latestRow : queryLatestRowsByRoomObjectId(previousFullTime, targetTime)) {
             mergedRowsByObjectId.put(latestRow.getRoomObjectId(), latestRow);
         }
@@ -183,6 +254,72 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     /** 构造 0 秒对象快照。 */
     private List<RoomObjectHis> buildZeroPointSnapshot() {
         return markSourceType(sortByRoomObjectId(queryRowsAtTime(0)), SOURCE_TYPE_FULL);
+    }
+
+    private void ensureSnapshotCacheInitialized(ProgressSnapshotQuery snapshotQuery) {
+        ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
+        if (normalizedSnapshotQuery.getIntervalSeconds() <= 0) {
+            throw new IllegalArgumentException("全量保存间隔必须大于 0 秒");
+        }
+        Map<Integer, List<RoomObjectHis>> roomObjectSnapshotCache = getRoomObjectCacheByTime(normalizedSnapshotQuery);
+        if (roomObjectSnapshotCache.get(0) == null) {
+            roomObjectSnapshotCache.putIfAbsent(0, buildZeroPointSnapshot());
+        }
+
+        Map<Integer, List<FireJudgeResult>> eventSnapshotCache = getEventCacheByTime(normalizedSnapshotQuery);
+        if (eventSnapshotCache.get(0) == null) {
+            eventSnapshotCache.putIfAbsent(0, buildZeroPointEventSnapshot());
+        }
+    }
+
+    private Map<Integer, List<RoomObjectHis>> getRoomObjectCacheByTime(ProgressSnapshotQuery snapshotQuery) {
+        String dbName = snapshotQuery.getDbName();
+        int intervalSeconds = snapshotQuery.getIntervalSeconds();
+        // 第一层 key=dbName，value=当前数据库下的“全量间隔 -> 秒点快照”映射。
+        Map<Integer, Map<Integer, List<RoomObjectHis>>> cacheByInterval = fullSnapshotCache.get(dbName);
+        if (cacheByInterval == null) {
+            Map<Integer, Map<Integer, List<RoomObjectHis>>> newCacheByInterval = new ConcurrentHashMap<>();
+            Map<Integer, Map<Integer, List<RoomObjectHis>>> existingCacheByInterval = fullSnapshotCache.putIfAbsent(dbName, newCacheByInterval);
+            cacheByInterval = existingCacheByInterval != null ? existingCacheByInterval : newCacheByInterval;
+        }
+
+        // 第二层 key=intervalSeconds，value=该全量间隔下的“simTime -> 快照数据”映射。
+        Map<Integer, List<RoomObjectHis>> cacheByTime = cacheByInterval.get(intervalSeconds);
+        if (cacheByTime == null) {
+            Map<Integer, List<RoomObjectHis>> newCacheByTime = new ConcurrentHashMap<>();
+            Map<Integer, List<RoomObjectHis>> existingCacheByTime = cacheByInterval.putIfAbsent(intervalSeconds, newCacheByTime);
+            cacheByTime = existingCacheByTime != null ? existingCacheByTime : newCacheByTime;
+        }
+        return cacheByTime;
+    }
+
+    private Map<Integer, List<FireJudgeResult>> getEventCacheByTime(ProgressSnapshotQuery snapshotQuery) {
+        String dbName = snapshotQuery.getDbName();
+        int intervalSeconds = snapshotQuery.getIntervalSeconds();
+        // 第一层 key=dbName，value=当前数据库下的“全量间隔 -> 秒点事件快照”映射。
+        Map<Integer, Map<Integer, List<FireJudgeResult>>> cacheByInterval = eventFullSnapshotCache.get(dbName);
+        if (cacheByInterval == null) {
+            Map<Integer, Map<Integer, List<FireJudgeResult>>> newCacheByInterval = new ConcurrentHashMap<Integer, Map<Integer, List<FireJudgeResult>>>();
+            Map<Integer, Map<Integer, List<FireJudgeResult>>> existingCacheByInterval = eventFullSnapshotCache.putIfAbsent(dbName, newCacheByInterval);
+            cacheByInterval = existingCacheByInterval != null ? existingCacheByInterval : newCacheByInterval;
+        }
+
+        // 第二层 key=intervalSeconds，value=该全量间隔下的“simTime -> 事件快照数据”映射。
+        Map<Integer, List<FireJudgeResult>> cacheByTime = cacheByInterval.get(intervalSeconds);
+        if (cacheByTime == null) {
+            Map<Integer, List<FireJudgeResult>> newCacheByTime = new ConcurrentHashMap<Integer, List<FireJudgeResult>>();
+            Map<Integer, List<FireJudgeResult>> existingCacheByTime = cacheByInterval.putIfAbsent(intervalSeconds, newCacheByTime);
+            cacheByTime = existingCacheByTime != null ? existingCacheByTime : newCacheByTime;
+        }
+        return cacheByTime;
+    }
+
+    private ProgressSnapshotQuery normalizeSnapshotQuery(ProgressSnapshotQuery snapshotQuery) {
+        return new ProgressSnapshotQuery(
+                snapshotQuery.getDbName(),
+                snapshotQuery.getIntervalSeconds(),
+                Math.max(snapshotQuery.getSimTime(), 0)
+        );
     }
 
     /** 查询某一秒的对象记录。 */
@@ -205,7 +342,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
 
     /** 提取区间内每个对象最后一次生效记录。 */
     private List<RoomObjectHis> queryLatestRowsByRoomObjectId(int fromExclusive, int toInclusive) {
-        Map<Integer, RoomObjectHis> latestRowsByObjectId = new LinkedHashMap<>();
+        Map<Integer, RoomObjectHis> latestRowsByObjectId = new LinkedHashMap<Integer, RoomObjectHis>();
         for (RoomObjectHis row : queryRowsBetween(fromExclusive, toInclusive)) {
             latestRowsByObjectId.put(row.getRoomObjectId(), row);
         }
@@ -245,11 +382,16 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         if (rows == null || rows.isEmpty()) {
             return new ArrayList<>();
         }
-        rows.removeIf(java.util.Objects::isNull);
-        rows.sort(Comparator
-                .comparing(RoomObjectHis::getRoomObjectId, Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(RoomObjectHis::getTargetId, Comparator.nullsLast(Comparator.naturalOrder())));
-        return rows;
+
+        List<RoomObjectHis> filteredRows = new ArrayList<>();
+        for (RoomObjectHis row : rows) {
+            if (row != null) {
+                filteredRows.add(row);
+            }
+        }
+
+        filteredRows.sort((left, right) -> compareNullableInteger(left.getRoomObjectId(), right.getRoomObjectId()));
+        return filteredRows;
     }
 
     /** 标记快照来源类型。 */
@@ -257,11 +399,11 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         if (rows == null || rows.isEmpty()) {
             return new ArrayList<>();
         }
-        rows.forEach(row -> {
+        for (RoomObjectHis row : rows) {
             if (row != null) {
                 row.setSourceType(sourceType);
             }
-        });
+        }
         return rows;
     }
 
@@ -299,4 +441,18 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         }
         return clones;
     }
+
+    private int compareNullableInteger(Integer left, Integer right) {
+        if (left == null && right == null) {
+            return 0;
+        }
+        if (left == null) {
+            return 1;
+        }
+        if (right == null) {
+            return -1;
+        }
+        return left.compareTo(right);
+    }
+
 }
