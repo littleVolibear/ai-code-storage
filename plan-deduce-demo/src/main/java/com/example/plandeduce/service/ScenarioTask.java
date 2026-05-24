@@ -40,7 +40,7 @@ public class ScenarioTask {
     private final AtomicInteger fullSaveIntervalSeconds = new AtomicInteger(600);
     private final AtomicInteger maxSimTime = new AtomicInteger(0);
     // 暂存待跳转的目标秒点，由 tick 线程串行消费，避免 skip 与正常播放推进并发冲突。
-    private final AtomicReference<Integer> pendingSkipTime = new AtomicReference<Integer>();
+    private final AtomicReference<Integer> pendingSkipTime = new AtomicReference<>();
     private volatile ScheduledFuture<?> future;
 
     public ScenarioTask(String dbName,
