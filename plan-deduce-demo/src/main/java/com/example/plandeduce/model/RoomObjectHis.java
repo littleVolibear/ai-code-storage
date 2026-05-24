@@ -85,7 +85,7 @@ public class RoomObjectHis {
     private Integer supporting; // 支援状态
     private Integer loadState; // 装载状态
     private Integer visible; // 是否可见
-    private Integer simTime; // 业务时间秒点
+    private Integer simTime; // 库里按毫秒存储的业务时间，对外查询结果会按秒规整
     private Long createTime; // 记录创建时间
     private Long ifCountdown; // 是否处于倒计时
     private Timestamp weaponCountdown; // 武器倒计时结束时间

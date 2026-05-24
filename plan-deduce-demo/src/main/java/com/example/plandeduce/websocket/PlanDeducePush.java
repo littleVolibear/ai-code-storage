@@ -7,7 +7,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 进度条 WebSocket 推送门面。
@@ -24,7 +26,7 @@ public class PlanDeducePush {
     /**
      * 推送带数据的快照消息。
      * 所有需要刷新进度条和数据面板的事件都应经过这个入口，避免业务代码散落拼接 PushMessage。
-     * 这里会把 fullData 和 incrementalData 合并到 data 字段，供前端直接消费。
+     * 这里会把 fullData 和 incrementalData 按 roomObjectId 覆盖合并到 data 字段，供前端直接消费。
      */
     public void pushSnapshot(String type,
                              String dbName,
@@ -44,9 +46,7 @@ public class PlanDeducePush {
         hydrateRoomObjectRealTime(fullData, realTime);
         hydrateRoomObjectRealTime(incrementalData, realTime);
         hydrateEventRealTime(eventData, realTime);
-        List<RoomObjectHis> mergedData = new ArrayList<>(fullData.size() + incrementalData.size());
-        mergedData.addAll(fullData);
-        mergedData.addAll(incrementalData);
+        List<RoomObjectHis> mergedData = mergeRoomObjectData(fullData, incrementalData);
 
         PushMessage message = buildBaseMessage(type, dbName, sessionId, realTime, deduceTime, fullTime, speed, running, maxSimTime);
         message.setFullData(Collections.emptyList());
@@ -111,8 +111,22 @@ public class PlanDeducePush {
         if (incrementalData.isEmpty()) {
             return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + fullTime + " 秒全量数据";
         }
-        int startTime = incrementalData.get(0).getSimTime() == null ? (fullTime + 1) : incrementalData.get(0).getSimTime();
-        return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + startTime + "-" + deduceTime + " 秒增量数据";
+        return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + (fullTime + 1) + "-" + deduceTime + " 秒增量补丁";
+    }
+
+    private List<RoomObjectHis> mergeRoomObjectData(List<RoomObjectHis> fullData, List<RoomObjectHis> incrementalData) {
+        Map<Integer, RoomObjectHis> rowsByObjectId = new LinkedHashMap<>();
+        for (RoomObjectHis row : fullData) {
+            if (row != null && row.getRoomObjectId() != null) {
+                rowsByObjectId.put(row.getRoomObjectId(), row);
+            }
+        }
+        for (RoomObjectHis row : incrementalData) {
+            if (row != null && row.getRoomObjectId() != null) {
+                rowsByObjectId.put(row.getRoomObjectId(), row);
+            }
+        }
+        return new ArrayList<>(rowsByObjectId.values());
     }
 
     private void hydrateRoomObjectRealTime(List<RoomObjectHis> data, int realTime) {

@@ -95,7 +95,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
             }
-            return cloneDataList(queryRowsBetween(fromExclusive, toInclusive), SOURCE_TYPE_INCREMENT);
+            return cloneDataList(queryLatestRowsByRoomObjectId(fromExclusive, toInclusive), SOURCE_TYPE_INCREMENT);
         } finally {
             DynamicDataSourceContextHolder.clear();
         }
@@ -174,6 +174,21 @@ public class ProgressDataServiceImpl implements ProgressDataService {
             return 0;
         }
         return Math.multiplyExact(totalTimeMinutes, 60);
+    }
+
+    private int toMillisecondStart(int secondValue) {
+        return Math.multiplyExact(Math.max(secondValue, 0), 1000);
+    }
+
+    private int toMillisecondEndExclusive(int secondValue) {
+        return Math.multiplyExact(Math.max(secondValue, 0) + 1, 1000);
+    }
+
+    private Integer toSecondValue(Integer millisecondValue) {
+        if (millisecondValue == null) {
+            return null;
+        }
+        return millisecondValue / 1000;
     }
 
     /** 获取指定秒点的对象全量快照。 */
@@ -324,17 +339,22 @@ public class ProgressDataServiceImpl implements ProgressDataService {
 
     /** 查询某一秒的对象记录。 */
     private List<RoomObjectHis> queryRowsAtTime(int simTime) {
+        int startMillisecond = toMillisecondStart(simTime);
+        int endMillisecondExclusive = toMillisecondEndExclusive(simTime);
         LambdaQueryWrapper<RoomObjectHis> queryWrapper = Wrappers.<RoomObjectHis>lambdaQuery()
-                .eq(RoomObjectHis::getSimTime, simTime)
+                .ge(RoomObjectHis::getSimTime, startMillisecond)
+                .lt(RoomObjectHis::getSimTime, endMillisecondExclusive)
                 .orderByAsc(RoomObjectHis::getRoomObjectId);
         return roomObjectMapper.selectList(queryWrapper);
     }
 
     /** 查询区间内的对象记录。 */
     private List<RoomObjectHis> queryRowsBetween(int fromExclusive, int toInclusive) {
+        int startMillisecond = toMillisecondStart(fromExclusive + 1);
+        int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
         LambdaQueryWrapper<RoomObjectHis> queryWrapper = Wrappers.<RoomObjectHis>lambdaQuery()
-                .gt(RoomObjectHis::getSimTime, fromExclusive)
-                .le(RoomObjectHis::getSimTime, toInclusive)
+                .ge(RoomObjectHis::getSimTime, startMillisecond)
+                .lt(RoomObjectHis::getSimTime, endMillisecondExclusive)
                 .orderByAsc(RoomObjectHis::getSimTime)
                 .orderByAsc(RoomObjectHis::getRoomObjectId);
         return roomObjectMapper.selectList(queryWrapper);
@@ -351,8 +371,11 @@ public class ProgressDataServiceImpl implements ProgressDataService {
 
     /** 查询某一秒的事件记录。 */
     private List<FireJudgeResult> queryEventRowsAtTime(int simTimeValue) {
+        int startMillisecond = toMillisecondStart(simTimeValue);
+        int endMillisecondExclusive = toMillisecondEndExclusive(simTimeValue);
         LambdaQueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>lambdaQuery()
-                .eq(FireJudgeResult::getSimTime, simTimeValue)
+                .ge(FireJudgeResult::getSimTime, startMillisecond)
+                .lt(FireJudgeResult::getSimTime, endMillisecondExclusive)
                 .orderByAsc(FireJudgeResult::getSimTime)
                 .orderByAsc(FireJudgeResult::getId);
         return fireJudgeResultMapper.selectList(queryWrapper);
@@ -360,9 +383,11 @@ public class ProgressDataServiceImpl implements ProgressDataService {
 
     /** 查询区间内的事件记录。 */
     private List<FireJudgeResult> queryEventRowsBetween(int fromExclusive, int toInclusive) {
+        int startMillisecond = toMillisecondStart(fromExclusive + 1);
+        int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
         LambdaQueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>lambdaQuery()
-                .gt(FireJudgeResult::getSimTime, fromExclusive)
-                .le(FireJudgeResult::getSimTime, toInclusive)
+                .ge(FireJudgeResult::getSimTime, startMillisecond)
+                .lt(FireJudgeResult::getSimTime, endMillisecondExclusive)
                 .orderByAsc(FireJudgeResult::getSimTime)
                 .orderByAsc(FireJudgeResult::getId);
         return fireJudgeResultMapper.selectList(queryWrapper);
@@ -420,6 +445,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
             RoomObjectHis clone = new RoomObjectHis();
             BeanUtils.copyProperties(item, clone);
             clone.setSourceType(sourceType);
+            clone.setSimTime(toSecondValue(clone.getSimTime()));
             clones.add(clone);
         }
         return clones;
@@ -437,6 +463,8 @@ public class ProgressDataServiceImpl implements ProgressDataService {
             }
             FireJudgeResult clone = new FireJudgeResult();
             BeanUtils.copyProperties(item, clone);
+            clone.setSimTime(toSecondValue(clone.getSimTime()));
+            clone.setPhysicalTime(toSecondValue(clone.getPhysicalTime()));
             clones.add(clone);
         }
         return clones;

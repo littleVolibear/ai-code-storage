@@ -85,7 +85,7 @@ class PlanDeduceIntegrationTest {
         assertEquals(11, skipMessage.path("realTime").asInt());
         assertEquals(10, skipMessage.path("fullTime").asInt());
         assertEquals(11, skipMessage.path("deduceTime").asInt());
-        assertSimtimes(skipMessage, skipMessage.path("data"), concat(repeatSimtime(10), repeatSimtime(11)));
+        assertSimtimes(skipMessage, skipMessage.path("data"), repeatSimtime(11));
         assertEventTimes(skipMessage, skipMessage.path("eventData"), range(0, 11));
         assertRoomObjectFieldsPresent(skipMessage.path("data"));
     }
@@ -102,7 +102,7 @@ class PlanDeduceIntegrationTest {
         assertEquals(13, skipMessage.path("realTime").asInt());
         assertEquals(10, skipMessage.path("fullTime").asInt());
         assertEquals(13, skipMessage.path("deduceTime").asInt());
-        assertSimtimes(skipMessage, skipMessage.path("data"), concat(repeatSimtime(10), repeatSimtime(13)));
+        assertSimtimes(skipMessage, skipMessage.path("data"), repeatSimtime(13));
         assertEventTimes(skipMessage, skipMessage.path("eventData"), range(0, 13));
         assertRoomObjectFieldsPresent(skipMessage.path("data"));
     }
@@ -229,7 +229,7 @@ class PlanDeduceIntegrationTest {
         JsonNode resumedPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
         assertEquals(3, resumedPlay.path("realTime").asInt());
         assertEquals(5, resumedPlay.path("deduceTime").asInt());
-        assertSimtimes(resumedPlay, resumedPlay.path("data"), rangeRepeated(3, 5));
+        assertSimtimes(resumedPlay, resumedPlay.path("data"), repeatSimtime(5));
         assertEventTimes(resumedPlay, resumedPlay.path("eventData"), 3, 4, 5);
         assertEquals(3, resumedPlay.path("speed").asInt());
 
@@ -322,7 +322,7 @@ class PlanDeduceIntegrationTest {
         JsonNode resumedPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
         assertEquals(6, resumedPlay.path("realTime").asInt());
         assertEquals(8, resumedPlay.path("deduceTime").asInt());
-        assertSimtimes(resumedPlay, resumedPlay.path("data"), rangeRepeated(6, 8));
+        assertSimtimes(resumedPlay, resumedPlay.path("data"), repeatSimtime(8));
         assertEventTimes(resumedPlay, resumedPlay.path("eventData"), 6, 7, 8);
         assertBusinessTime(resumedPlay, 8);
         assertEquals(3, resumedPlay.path("speed").asInt());
@@ -733,7 +733,7 @@ class PlanDeduceIntegrationTest {
         call("/plan/skip?dbName=" + DB_NAME + "&skip=13&sessionId=" + sessionId);
         JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
         assertCompatibilityArraysEmpty(skip);
-        assertSimtimes(skip, skip.path("data"), concat(repeatSimtime(10), repeatSimtime(13)));
+        assertSimtimes(skip, skip.path("data"), repeatSimtime(13));
         assertEventTimes(skip, skip.path("eventData"), range(0, 13));
     }
 

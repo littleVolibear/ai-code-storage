@@ -2,7 +2,7 @@ INSERT INTO ROOM_INFO(id, title, totalTime, startTime)
 VALUES (1, '示例推演', 20, '2026-01-01 00:00:00');
 
 INSERT INTO FIRE_JUDGE_RESULT(ID, ROOM_ID, PHYSICAL_TIME, SIM_TIME)
-SELECT CAST(t.X + 1 AS BIGINT), '1', t.X, t.X
+SELECT CAST(t.X + 1 AS BIGINT), '1', t.X * 1000, t.X * 1000
 FROM SYSTEM_RANGE(0, 1200) t;
 
 INSERT INTO OBJ_ROOM_HIS(
@@ -183,7 +183,7 @@ SELECT
         WHEN p.room_object_id = 3 AND t.X >= 900 THEN 0
         ELSE 1
     END,
-    t.X,
+    t.X * 1000,
     1710000000000 + (t.X * 1000),
     CASE WHEN MOD(t.X, 11) = 0 THEN 1 ELSE 0 END,
     DATEADD('SECOND', t.X, TIMESTAMP '2026-01-01 00:00:00'),
