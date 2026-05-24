@@ -2,6 +2,8 @@ package com.example.plandeduce.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import cn.hutool.core.date.DatePattern;
+import cn.hutool.core.date.DateUtil;
 import com.example.plandeduce.config.DynamicDataSourceContextHolder;
 import com.example.plandeduce.mapper.FireJudgeResultMapper;
 import com.example.plandeduce.mapper.RoomInfoMapper;
@@ -54,7 +56,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         DynamicDataSourceContextHolder.set(dbName);
         try {
             RoomInfo roomInfo = requireRoomInfo(dbName);
-            return new ProgressTimeline(roomInfo.getStartTime(), minutesToSeconds(roomInfo.getTotalTime()));
+            return new ProgressTimeline(formatStartTime(roomInfo.getStartTime()), minutesToSeconds(roomInfo.getTotalTime()));
         } finally {
             DynamicDataSourceContextHolder.clear();
         }
@@ -174,6 +176,13 @@ public class ProgressDataServiceImpl implements ProgressDataService {
             return 0;
         }
         return Math.multiplyExact(totalTimeMinutes, 60);
+    }
+
+    private String formatStartTime(java.util.Date startTime) {
+        if (startTime == null) {
+            return null;
+        }
+        return DateUtil.format(startTime, DatePattern.NORM_DATETIME_PATTERN);
     }
 
     private int toMillisecondStart(int secondValue) {

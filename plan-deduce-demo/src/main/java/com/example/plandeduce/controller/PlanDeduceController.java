@@ -43,7 +43,7 @@ public class PlanDeduceController {
         ScenarioTask task = existingTask != null ? existingTask : taskManager.getOrCreate(dbName, sessionId);
         ProgressTimeline timeline = progressDataService.queryProgressTimeline(new ProgressQueryContext(dbName));
         task.initialize(skip, null, timeline.getEndTime());
-        return new InitProgressResponse(dbName, sessionId, timeline.getStartTime(), timeline.getEndTime());
+        return new InitProgressResponse(dbName, sessionId, timeline.getStartTime(), String.valueOf(timeline.getEndTime()));
     }
 
     /**
@@ -114,6 +114,6 @@ public class PlanDeduceController {
         private final String dbName;
         private final String sessionId;
         private final String startTime;
-        private final Integer endTime;
+        private final String endTime;
     }
 }

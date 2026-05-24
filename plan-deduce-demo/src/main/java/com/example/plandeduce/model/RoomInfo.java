@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.util.Date;
+
 @Data
 @TableName("ROOM_INFO")
 public class RoomInfo {
@@ -15,5 +17,5 @@ public class RoomInfo {
     @TableField("totalTime")
     private Integer totalTime;
     @TableField("startTime")
-    private String startTime;
+    private Date startTime;
 }

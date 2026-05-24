@@ -6,7 +6,7 @@ CREATE TABLE ROOM_INFO (
     id BIGINT PRIMARY KEY,
     title VARCHAR(255),
     totalTime INT,
-    startTime VARCHAR(50)
+    startTime TIMESTAMP
 );
 
 CREATE TABLE FIRE_JUDGE_RESULT (

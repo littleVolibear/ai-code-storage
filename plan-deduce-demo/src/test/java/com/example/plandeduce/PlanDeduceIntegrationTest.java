@@ -935,7 +935,7 @@ class PlanDeduceIntegrationTest {
         assertEquals(DB_NAME, body.path("dbName").asText());
         assertEquals(sessionId, body.path("sessionId").asText());
         assertEquals("2026-01-01 00:00:00", body.path("startTime").asText());
-        assertEquals(1200, body.path("endTime").asInt());
+        assertEquals("1200", body.path("endTime").asText());
         socket.assertNoMessage(Duration.ofMillis(350));
     }
 
