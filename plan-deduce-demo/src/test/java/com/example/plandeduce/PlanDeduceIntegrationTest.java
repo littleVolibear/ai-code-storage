@@ -1024,8 +1024,9 @@ class PlanDeduceIntegrationTest {
         assertEquals(expected.length, dataNode.size());
         int expectedRealTime = messageNode.path("realTime").asInt();
         for (int i = 0; i < expected.length; i++) {
-            assertEquals(expected[i], dataNode.get(i).path("simTime").asInt(), "simTime mismatch at index " + i);
-            assertEquals(expected[i], dataNode.get(i).path("physicalTime").asInt(), "physicalTime mismatch at index " + i);
+            int expectedMillisecond = expected[i] * 1000;
+            assertEquals(expectedMillisecond, dataNode.get(i).path("simTime").asInt(), "simTime mismatch at index " + i);
+            assertEquals(expectedMillisecond, dataNode.get(i).path("physicalTime").asInt(), "physicalTime mismatch at index " + i);
             assertEquals(expectedRealTime, dataNode.get(i).path("realTime").asInt(), "realTime mismatch at index " + i);
             assertEquals(DB_NAME, dataNode.get(i).path("roomId").asText(), "roomId mismatch at index " + i);
         }
@@ -1075,7 +1076,8 @@ class PlanDeduceIntegrationTest {
         }
         int max = -1;
         for (JsonNode node : dataNode) {
-            max = Math.max(max, node.path("simTime").asInt(-1));
+            int rawSimTime = node.path("simTime").asInt(-1);
+            max = Math.max(max, rawSimTime < 0 ? rawSimTime : rawSimTime / 1000);
         }
         return max;
     }
@@ -1083,7 +1085,7 @@ class PlanDeduceIntegrationTest {
     private int[] repeatSimtime(int simtime) {
         int[] values = new int[PIECES_PER_SECOND];
         for (int i = 0; i < PIECES_PER_SECOND; i++) {
-            values[i] = simtime;
+            values[i] = simtime * 1000;
         }
         return values;
     }
@@ -1093,7 +1095,7 @@ class PlanDeduceIntegrationTest {
         int index = 0;
         for (int simtime = startInclusive; simtime <= endInclusive; simtime++) {
             for (int i = 0; i < PIECES_PER_SECOND; i++) {
-                values[index++] = simtime;
+                values[index++] = simtime * 1000;
             }
         }
         return values;

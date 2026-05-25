@@ -454,7 +454,6 @@ public class ProgressDataServiceImpl implements ProgressDataService {
             RoomObjectHis clone = new RoomObjectHis();
             BeanUtils.copyProperties(item, clone);
             clone.setSourceType(sourceType);
-            clone.setSimTime(toSecondValue(clone.getSimTime()));
             clones.add(clone);
         }
         return clones;
@@ -472,8 +471,6 @@ public class ProgressDataServiceImpl implements ProgressDataService {
             }
             FireJudgeResult clone = new FireJudgeResult();
             BeanUtils.copyProperties(item, clone);
-            clone.setSimTime(toSecondValue(clone.getSimTime()));
-            clone.setPhysicalTime(toSecondValue(clone.getPhysicalTime()));
             clones.add(clone);
         }
         return clones;
