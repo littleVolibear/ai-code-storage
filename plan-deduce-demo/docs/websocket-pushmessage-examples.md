@@ -71,3 +71,4 @@
 - 当前推演推进到哪里看外层 `deduceTime`
 - 具体渲染哪几秒的数据，看 `data[].simTime`
 - 具体渲染哪几秒的事件，看 `eventData[].simTime`
+- 只有 `SKIP` 会在后端内部用全量点拼装状态，前端始终只消费聚合后的 `data/eventData/indrectFirePlanData/commandInfoData`

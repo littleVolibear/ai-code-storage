@@ -54,11 +54,24 @@ curl "http://localhost:8080/plan/..."
 
 - `data`
 - `eventData`
+- `indrectFirePlanData`
+- `commandInfoData`
 
 虽然内部仍区分全量和增量查询，但 WebSocket 对外目前固定：
 
 - `fullData = []`
 - `incrementalData = []`
+- `eventFullData = []`
+- `eventIncrementalData = []`
+- `indrectFirePlanFullData = []`
+- `indrectFirePlanIncrementalData = []`
+- `commandInfoFullData = []`
+- `commandInfoIncrementalData = []`
+
+当前查询规则是：
+
+- 只有 `SKIP` 内部会用“最近全量点 + 区间增量”组装状态
+- `INIT`、`INTERVAL`、`PLAY` 只查各自时间段的增量数据
 
 ### 2.4 接口自动恢复行为
 
@@ -176,6 +189,7 @@ curl "http://localhost:8080/plan/skip?dbName=1&skip=33&sessionId=s1"
 - 第一条收到 `INTERVAL`
 - 第二条收到 `SKIP`
 - `SKIP.fullTime=20`
+- `INTERVAL` 本身仍只反映当前秒的增量数据
 
 ### 场景九：播放结束
 

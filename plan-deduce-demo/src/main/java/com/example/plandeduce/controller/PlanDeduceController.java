@@ -47,7 +47,7 @@ public class PlanDeduceController {
     }
 
     /**
-     * 跳转到指定秒点，并立即推送该秒点对应的完整快照。
+     * 跳转到指定秒点，并立即推送该秒点对应的跳点快照。
      */
     @GetMapping("/skip")
     public void skip(@NotNull(message = "库名不能为空") @RequestParam String dbName,

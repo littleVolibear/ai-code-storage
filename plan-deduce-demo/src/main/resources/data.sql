@@ -1,9 +1,51 @@
 INSERT INTO ROOM_INFO(id, title, totalTime, startTime)
 VALUES (1, '示例推演', 20, '2026-01-01 00:00:00');
 
-INSERT INTO FIRE_JUDGE_RESULT(ID, ROOM_ID, PHYSICAL_TIME, SIM_TIME)
-SELECT CAST(t.X + 1 AS BIGINT), '1', t.X * 1000, t.X * 1000
-FROM SYSTEM_RANGE(0, 1200) t;
+INSERT INTO FIRE_JUDGE_RESULT(ID, ROOM_ID, OBJ_ID, TAR_OBJ_ID, PHYSICAL_TIME, SIM_TIME)
+SELECT
+    CAST((t.X * 10) + p.seq AS BIGINT),
+    '1',
+    p.obj_id,
+    p.tar_obj_id,
+    t.X * 1000,
+    t.X * 1000
+FROM SYSTEM_RANGE(0, 1200) t
+CROSS JOIN (
+    SELECT 1 AS seq, 101 AS obj_id, 201 AS tar_obj_id
+    UNION ALL
+    SELECT 2 AS seq, 102 AS obj_id, 202 AS tar_obj_id
+) p;
+
+INSERT INTO INDRECT_FIRE_PLAN(ID, ROOM_ID, OBJ_ID, CREATE_TIME, IF_ID, SIM_TIME)
+SELECT
+    (t.X * 10) + p.seq,
+    501,
+    p.obj_id,
+    DATEADD('SECOND', t.X, TIMESTAMP '2026-01-01 00:00:00'),
+    p.if_id,
+    t.X * 1000
+FROM SYSTEM_RANGE(0, 1200) t
+CROSS JOIN (
+    SELECT 1 AS seq, 301 AS obj_id, 701 AS if_id
+    UNION ALL
+    SELECT 2 AS seq, 302 AS obj_id, 702 AS if_id
+) p;
+
+INSERT INTO COMMAND_INFO(ID, ROOM_ID, OBJ_ID, RECEIVE_TIME, SIM_TIME)
+SELECT
+    (t.X * 10) + p.seq,
+    501,
+    p.obj_id,
+    DATEADD('SECOND', t.X, TIMESTAMP '2026-01-01 00:00:00'),
+    t.X * 1000
+FROM SYSTEM_RANGE(0, 1200) t
+CROSS JOIN (
+    SELECT 1 AS seq, 1 AS obj_id
+    UNION ALL
+    SELECT 2 AS seq, 2 AS obj_id
+    UNION ALL
+    SELECT 3 AS seq, 3 AS obj_id
+) p;
 
 INSERT INTO OBJ_ROOM_HIS(
     ROOM_OBJECT_ID,

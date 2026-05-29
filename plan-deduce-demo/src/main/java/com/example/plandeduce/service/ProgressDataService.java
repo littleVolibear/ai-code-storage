@@ -4,7 +4,9 @@ import com.example.plandeduce.model.ProgressQueryContext;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.model.ProgressTimeline;
+import com.example.plandeduce.model.CommandInfo;
 import com.example.plandeduce.model.FireJudgeResult;
+import com.example.plandeduce.model.IndrectFirePlan;
 import com.example.plandeduce.model.RoomObjectHis;
 
 import java.util.List;
@@ -51,4 +53,23 @@ public interface ProgressDataService {
      */
     List<FireJudgeResult> queryEventIncrementalData(ProgressRangeQuery rangeQuery);
 
+    /**
+     * 查询某个全量秒点上的间瞄计划数据。
+     */
+    List<IndrectFirePlan> queryIndrectFirePlanFullData(ProgressSnapshotQuery snapshotQuery);
+
+    /**
+     * 查询间瞄计划增量数据，区间语义为 (fromExclusive, toInclusive]。
+     */
+    List<IndrectFirePlan> queryIndrectFirePlanIncrementalData(ProgressRangeQuery rangeQuery);
+
+    /**
+     * 查询某个全量秒点上的指令信息数据。
+     */
+    List<CommandInfo> queryCommandInfoFullData(ProgressSnapshotQuery snapshotQuery);
+
+    /**
+     * 查询指令信息增量数据，区间语义为 (fromExclusive, toInclusive]。
+     */
+    List<CommandInfo> queryCommandInfoIncrementalData(ProgressRangeQuery rangeQuery);
 }

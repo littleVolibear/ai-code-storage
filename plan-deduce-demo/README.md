@@ -72,13 +72,13 @@ ws://localhost:8080/ws/planDeduce?sessionId=s1
 http://localhost:8080/plan/sendPlanDeduce?dbName=plandeduce&skip=0&sessionId=s1
 ```
 
-跳转到第 6 秒，会取第 0 秒全量数据：
+跳转到第 6 秒，会取第 0 秒全量数据并叠加 1-6 秒增量数据：
 
 ```text
 http://localhost:8080/plan/skip?dbName=plandeduce&skip=6&sessionId=s1
 ```
 
-跳转到第 11 秒，会取第 10 秒全量数据：
+跳转到第 11 秒，会取第 10 秒全量数据并叠加 11 秒增量数据：
 
 ```text
 http://localhost:8080/plan/skip?dbName=plandeduce&skip=11&sessionId=s1

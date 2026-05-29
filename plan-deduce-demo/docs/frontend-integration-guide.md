@@ -192,6 +192,7 @@ GET /plan/fullSaveInterval
 
 - 立即推一次 `INTERVAL`
 - 后续所有快照的 `fullTime` 计算规则都会按新间隔生效
+- 但 `INTERVAL` 自身以及后续 `PLAY` 仍只发送增量数据，不会因为命中整间隔点切到全量查询
 
 ### 3.6 销毁任务
 
@@ -236,9 +237,11 @@ type PushMessage = {
 
 需要特别注意：
 
-1. 当前主消费字段是 `data` 和 `eventData`。
-2. `fullData` / `incrementalData` 现在对外固定为空数组。
-3. `message` 只是辅助说明，不要拿它做程序分支。
+1. 当前主消费字段是 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`。
+2. `fullData` / `incrementalData` 以及对应的 `*FullData` / `*IncrementalData` 现在对外固定为空数组。
+3. 只有 `SKIP` 会在后端内部使用“最近全量点 + 区间增量”拼装当前状态。
+4. `INIT`、`INTERVAL`、`PLAY` 对前端都只是“当前时间段的数据”，不要按全量点做特殊分支。
+5. `message` 只是辅助说明，不要拿它做程序分支。
 
 ## 5. 前端消费建议
 

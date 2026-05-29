@@ -2,6 +2,8 @@ package com.example.plandeduce.service;
 
 import com.example.plandeduce.config.PlanDeduceProperties;
 import com.example.plandeduce.model.FireJudgeResult;
+import com.example.plandeduce.model.IndrectFirePlan;
+import com.example.plandeduce.model.CommandInfo;
 import com.example.plandeduce.model.ProgressQueryContext;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
@@ -114,6 +116,26 @@ class ScenarioTaskReplayTest {
 
         @Override
         public List<FireJudgeResult> queryEventIncrementalData(ProgressRangeQuery rangeQuery) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<IndrectFirePlan> queryIndrectFirePlanFullData(ProgressSnapshotQuery snapshotQuery) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<IndrectFirePlan> queryIndrectFirePlanIncrementalData(ProgressRangeQuery rangeQuery) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<CommandInfo> queryCommandInfoFullData(ProgressSnapshotQuery snapshotQuery) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<CommandInfo> queryCommandInfoIncrementalData(ProgressRangeQuery rangeQuery) {
             return Collections.emptyList();
         }
 

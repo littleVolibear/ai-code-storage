@@ -1,7 +1,9 @@
 package com.example.plandeduce.service;
 
 import com.example.plandeduce.config.PlanDeduceProperties;
+import com.example.plandeduce.model.CommandInfo;
 import com.example.plandeduce.model.FireJudgeResult;
+import com.example.plandeduce.model.IndrectFirePlan;
 import com.example.plandeduce.model.ProgressQueryContext;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
@@ -35,7 +37,7 @@ public class ScenarioTask {
     private final AtomicInteger speed = new AtomicInteger(1);
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean initialized = new AtomicBoolean(false);
-    // 标记本轮播放是否已经向前端推送过首次 INIT 完整快照，避免暂停恢复时重复初始化。
+    // 标记本轮播放是否已经向前端推送过首次 INIT 当前秒快照，避免暂停恢复时重复初始化。
     private final AtomicBoolean initSnapshotPushed = new AtomicBoolean(false);
     private final AtomicInteger fullSaveIntervalSeconds = new AtomicInteger(600);
     private final AtomicInteger maxSimTime = new AtomicInteger(0);
@@ -207,7 +209,7 @@ public class ScenarioTask {
         }
         if (!initSnapshotPushed.get()) {
             running.set(true);
-            pushCurrentStateSnapshot("INIT");
+            pushCurrentIncrementalSnapshot("INIT");
             initSnapshotPushed.set(true);
             ensureWorkerScheduled();
             return;
@@ -225,7 +227,7 @@ public class ScenarioTask {
         }
         fullSaveIntervalSeconds.set(intervalSeconds);
         initializeRuntimeState();
-        pushCurrentStateSnapshot("INTERVAL");
+        pushCurrentIncrementalSnapshot("INTERVAL");
     }
 
     /**
@@ -246,13 +248,78 @@ public class ScenarioTask {
     }
 
     /**
-     * 推送完整快照。
-     * 当前内部拼装逻辑：
-     * 1. fullData 是最近全量秒点的最终完整状态；
-     * 2. incrementalData 不是区间历史全量回放，而是从 fullTime 到当前秒之间每个 roomObjectId 最后一次生效的补丁；
-     * 3. WebSocket 对外协议会把两者合并到 data 字段，fullData / incrementalData 仅保留为空数组做兼容。
+     * 推送当前秒点的增量快照。
+     * INIT、INTERVAL 这类非跳点场景只查当前秒对应的增量，不走全量快照查询。
      */
-    private void pushCurrentStateSnapshot(String type) {
+    private void pushCurrentIncrementalSnapshot(String type) {
+        int now = currentTime.get();
+        int fullTime = calculateNearestFullTime(now);
+        ProgressRangeQuery rangeQuery = new ProgressRangeQuery(dbName, now - 1, now);
+        List<RoomObjectHis> incrementalData = progressDataService.queryIncrementalData(rangeQuery);
+        List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(rangeQuery);
+        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(rangeQuery);
+        List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(rangeQuery);
+        pushService.pushSnapshot(
+                type,
+                dbName,
+                sessionId,
+                realTime.get(),
+                now,
+                fullTime,
+                now - 1,
+                speed.get(),
+                running.get(),
+                maxSimTime.get(),
+                Collections.emptyList(),
+                incrementalData,
+                Collections.emptyList(),
+                eventIncrementalData,
+                Collections.emptyList(),
+                indrectFirePlanIncrementalData,
+                Collections.emptyList(),
+                commandInfoIncrementalData
+        );
+    }
+
+    /**
+     * 播放推进时只推送当前步长区间内的增量数据，即 (previousTime, nextTime]。
+     * 即便 next 恰好命中全量间隔点，也不切换成全量查询。
+     */
+    private void pushPlaySnapshot(int previousTime, int nextTime, int currentSpeed) {
+        int fullTime = calculateNearestFullTime(nextTime);
+        ProgressRangeQuery dataRangeQuery = new ProgressRangeQuery(dbName, previousTime, Math.min(previousTime + currentSpeed, nextTime));
+        ProgressRangeQuery eventRangeQuery = new ProgressRangeQuery(dbName, previousTime, nextTime);
+        List<RoomObjectHis> incrementalData = progressDataService.queryIncrementalData(dataRangeQuery);
+        List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(eventRangeQuery);
+        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(eventRangeQuery);
+        List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(eventRangeQuery);
+        pushService.pushSnapshot(
+                "PLAY",
+                dbName,
+                sessionId,
+                realTime.get(),
+                nextTime,
+                fullTime,
+                previousTime,
+                speed.get(),
+                running.get(),
+                maxSimTime.get(),
+                Collections.emptyList(),
+                incrementalData,
+                Collections.emptyList(),
+                eventIncrementalData,
+                Collections.emptyList(),
+                indrectFirePlanIncrementalData,
+                Collections.emptyList(),
+                commandInfoIncrementalData
+        );
+    }
+
+    /**
+     * 推送跳点快照。
+     * 只有 SKIP 会使用最近全量点加区间增量的拼装逻辑。
+     */
+    private void pushSkipSnapshot() {
         int now = currentTime.get();
         int fullTime = calculateNearestFullTime(now);
         ProgressSnapshotQuery snapshotQuery = new ProgressSnapshotQuery(dbName, fullSaveIntervalSeconds.get(), fullTime);
@@ -261,69 +328,30 @@ public class ScenarioTask {
         List<RoomObjectHis> incrementalData = progressDataService.querySnapshotIncrementalData(rangeQuery);
         List<FireJudgeResult> eventFullData = progressDataService.queryEventFullData(snapshotQuery);
         List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(rangeQuery);
-        List<FireJudgeResult> eventData = mergeEventData(eventFullData, eventIncrementalData);
+        List<IndrectFirePlan> indrectFirePlanFullData = progressDataService.queryIndrectFirePlanFullData(snapshotQuery);
+        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(rangeQuery);
+        List<CommandInfo> commandInfoFullData = progressDataService.queryCommandInfoFullData(snapshotQuery);
+        List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(rangeQuery);
         pushService.pushSnapshot(
-                type,
+                "SKIP",
                 dbName,
                 sessionId,
                 realTime.get(),
                 now,
                 fullTime,
-                speed.get(),
-                running.get(),
-                maxSimTime.get(),
-                fullData,
-                incrementalData,
-                eventData
-        );
-    }
-
-    /**
-     * 播放推进时的推送规则：
-     * 1. 如果 next 正好落在全量间隔点，只发该秒点全量数据；
-     * 2. 其他情况下，只发当前步长区间内的数据，即 (previousTime, nextTime]。
-     */
-    private void pushPlaySnapshot(int previousTime, int nextTime, int currentSpeed) {
-        int interval = fullSaveIntervalSeconds.get();
-        int fullTime = calculateNearestFullTime(nextTime);
-        boolean intervalPoint = nextTime % Math.max(interval, 1) == 0;
-        ProgressSnapshotQuery snapshotQuery = new ProgressSnapshotQuery(dbName, interval, nextTime);
-        ProgressRangeQuery dataRangeQuery = new ProgressRangeQuery(dbName, previousTime, Math.min(previousTime + currentSpeed, nextTime));
-        ProgressRangeQuery eventRangeQuery = new ProgressRangeQuery(dbName, previousTime, nextTime);
-        List<RoomObjectHis> fullData = intervalPoint
-                ? progressDataService.queryCachedFullData(snapshotQuery)
-                : Collections.emptyList();
-        List<RoomObjectHis> incrementalData = intervalPoint
-                ? Collections.emptyList()
-                : progressDataService.queryIncrementalData(dataRangeQuery);
-        List<FireJudgeResult> eventFullData = intervalPoint
-                ? progressDataService.queryEventFullData(snapshotQuery)
-                : Collections.emptyList();
-        List<FireJudgeResult> eventIncrementalData = intervalPoint
-                ? Collections.emptyList()
-                : progressDataService.queryEventIncrementalData(eventRangeQuery);
-        List<FireJudgeResult> eventData = mergeEventData(eventFullData, eventIncrementalData);
-        pushService.pushSnapshot(
-                "PLAY",
-                dbName,
-                sessionId,
-                realTime.get(),
-                nextTime,
                 fullTime,
                 speed.get(),
                 running.get(),
                 maxSimTime.get(),
                 fullData,
                 incrementalData,
-                eventData
+                eventFullData,
+                eventIncrementalData,
+                indrectFirePlanFullData,
+                indrectFirePlanIncrementalData,
+                commandInfoFullData,
+                commandInfoIncrementalData
         );
-    }
-
-    private List<FireJudgeResult> mergeEventData(List<FireJudgeResult> fullData, List<FireJudgeResult> incrementalData) {
-        List<FireJudgeResult> merged = new java.util.ArrayList<>(fullData.size() + incrementalData.size());
-        merged.addAll(fullData);
-        merged.addAll(incrementalData);
-        return merged;
     }
 
     /**
@@ -337,7 +365,7 @@ public class ScenarioTask {
         }
         currentTime.set(targetTime);
         realTime.set(targetTime);
-        pushCurrentStateSnapshot("SKIP");
+        pushSkipSnapshot();
         return true;
     }
 

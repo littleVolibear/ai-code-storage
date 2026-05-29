@@ -111,7 +111,19 @@
 
 - 预期：
   - 先收到 `INTERVAL`
+  - `INTERVAL` 只返回当前秒增量数据
   - 跳点后 `SKIP.fullTime=20`
+
+### TC-P0-009A 播放命中整间隔点时仍只发增量
+
+- 前置：
+  - `fullSaveIntervalSeconds=10`
+  - 初始化起点为 `9`
+- 预期：
+  - 第一条 `PLAY.realTime=10`
+  - `PLAY.fullTime=10`
+  - 对外仍只消费 `data/eventData/indrectFirePlanData/commandInfoData`
+  - 不因为命中整间隔点切换成全量报文
 
 ### TC-P0-010 播放结束时的最终状态
 

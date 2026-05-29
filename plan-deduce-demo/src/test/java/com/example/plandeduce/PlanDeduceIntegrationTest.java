@@ -48,6 +48,9 @@ class PlanDeduceIntegrationTest {
     private static final String DB_NAME = "1";
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
     private static final int PIECES_PER_SECOND = 3;
+    private static final int FIRE_EVENTS_PER_SECOND = 2;
+    private static final int INDIRECT_FIRE_PLANS_PER_SECOND = 2;
+    private static final int COMMAND_INFOS_PER_SECOND = 3;
 
     @LocalServerPort
     private int port;
@@ -86,7 +89,15 @@ class PlanDeduceIntegrationTest {
         assertEquals(10, skipMessage.path("fullTime").asInt());
         assertEquals(11, skipMessage.path("deduceTime").asInt());
         assertSimtimes(skipMessage, skipMessage.path("data"), repeatSimtime(11));
-        assertEventTimes(skipMessage, skipMessage.path("eventData"), range(0, 11));
+        assertEventTimes(skipMessage, skipMessage.path("eventData"), repeatEventSimtime(11));
+        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(11));
+        assertCommandInfoTimes(skipMessage, skipMessage.path("commandInfoData"), repeatCommandInfoSimtime(11));
+        assertEmptyArray(skipMessage.path("eventFullData"));
+        assertEmptyArray(skipMessage.path("eventIncrementalData"));
+        assertEmptyArray(skipMessage.path("indrectFirePlanFullData"));
+        assertEmptyArray(skipMessage.path("indrectFirePlanIncrementalData"));
+        assertEmptyArray(skipMessage.path("commandInfoFullData"));
+        assertEmptyArray(skipMessage.path("commandInfoIncrementalData"));
         assertRoomObjectFieldsPresent(skipMessage.path("data"));
     }
 
@@ -103,7 +114,15 @@ class PlanDeduceIntegrationTest {
         assertEquals(10, skipMessage.path("fullTime").asInt());
         assertEquals(13, skipMessage.path("deduceTime").asInt());
         assertSimtimes(skipMessage, skipMessage.path("data"), repeatSimtime(13));
-        assertEventTimes(skipMessage, skipMessage.path("eventData"), range(0, 13));
+        assertEventTimes(skipMessage, skipMessage.path("eventData"), repeatEventSimtime(13));
+        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(13));
+        assertCommandInfoTimes(skipMessage, skipMessage.path("commandInfoData"), repeatCommandInfoSimtime(13));
+        assertEmptyArray(skipMessage.path("eventFullData"));
+        assertEmptyArray(skipMessage.path("eventIncrementalData"));
+        assertEmptyArray(skipMessage.path("indrectFirePlanFullData"));
+        assertEmptyArray(skipMessage.path("indrectFirePlanIncrementalData"));
+        assertEmptyArray(skipMessage.path("commandInfoFullData"));
+        assertEmptyArray(skipMessage.path("commandInfoIncrementalData"));
         assertRoomObjectFieldsPresent(skipMessage.path("data"));
     }
 
@@ -117,13 +136,29 @@ class PlanDeduceIntegrationTest {
         assertEquals(0, init.path("deduceTime").asInt());
         assertEquals(0, init.path("fullTime").asInt());
         assertEquals(1200, init.path("maxSimTime").asInt());
-        assertEventTimes(init, init.path("eventData"), 0);
+        assertEventTimes(init, init.path("eventData"), repeatEventSimtime(0));
+        assertIndirectFirePlanTimes(init, init.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(0));
+        assertCommandInfoTimes(init, init.path("commandInfoData"), repeatCommandInfoSimtime(0));
+        assertEmptyArray(init.path("eventFullData"));
+        assertEmptyArray(init.path("eventIncrementalData"));
+        assertEmptyArray(init.path("indrectFirePlanFullData"));
+        assertEmptyArray(init.path("indrectFirePlanIncrementalData"));
+        assertEmptyArray(init.path("commandInfoFullData"));
+        assertEmptyArray(init.path("commandInfoIncrementalData"));
 
         JsonNode firstPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
         assertEquals(1, firstPlay.path("realTime").asInt());
         assertEquals(1, firstPlay.path("deduceTime").asInt());
         assertEquals(0, firstPlay.path("fullTime").asInt());
-        assertEventTimes(firstPlay, firstPlay.path("eventData"), 1);
+        assertEventTimes(firstPlay, firstPlay.path("eventData"), repeatEventSimtime(1));
+        assertIndirectFirePlanTimes(firstPlay, firstPlay.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(1));
+        assertCommandInfoTimes(firstPlay, firstPlay.path("commandInfoData"), repeatCommandInfoSimtime(1));
+        assertEmptyArray(firstPlay.path("eventFullData"));
+        assertEmptyArray(firstPlay.path("eventIncrementalData"));
+        assertEmptyArray(firstPlay.path("indrectFirePlanFullData"));
+        assertEmptyArray(firstPlay.path("indrectFirePlanIncrementalData"));
+        assertEmptyArray(firstPlay.path("commandInfoFullData"));
+        assertEmptyArray(firstPlay.path("commandInfoIncrementalData"));
 
         call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
         JsonNode pause = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
@@ -230,7 +265,9 @@ class PlanDeduceIntegrationTest {
         assertEquals(3, resumedPlay.path("realTime").asInt());
         assertEquals(5, resumedPlay.path("deduceTime").asInt());
         assertSimtimes(resumedPlay, resumedPlay.path("data"), repeatSimtime(5));
-        assertEventTimes(resumedPlay, resumedPlay.path("eventData"), 3, 4, 5);
+        assertEventTimes(resumedPlay, resumedPlay.path("eventData"), repeatEventSimtime(5));
+        assertIndirectFirePlanTimes(resumedPlay, resumedPlay.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(5));
+        assertCommandInfoTimes(resumedPlay, resumedPlay.path("commandInfoData"), repeatCommandInfoSimtime(5));
         assertEquals(3, resumedPlay.path("speed").asInt());
 
         call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
@@ -263,7 +300,9 @@ class PlanDeduceIntegrationTest {
         assertEquals(1, firstPlay.path("realTime").asInt());
         assertEquals(3, firstPlay.path("speed").asInt());
         assertEquals(3, firstPlay.path("deduceTime").asInt());
-        assertEventTimes(firstPlay, firstPlay.path("eventData"), 1, 2, 3);
+        assertEventTimes(firstPlay, firstPlay.path("eventData"), repeatEventSimtime(3));
+        assertIndirectFirePlanTimes(firstPlay, firstPlay.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(3));
+        assertCommandInfoTimes(firstPlay, firstPlay.path("commandInfoData"), repeatCommandInfoSimtime(3));
 
         call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
         JsonNode pause = socket.awaitMessageOfType("PAUSE", DEFAULT_TIMEOUT);
@@ -323,7 +362,9 @@ class PlanDeduceIntegrationTest {
         assertEquals(6, resumedPlay.path("realTime").asInt());
         assertEquals(8, resumedPlay.path("deduceTime").asInt());
         assertSimtimes(resumedPlay, resumedPlay.path("data"), repeatSimtime(8));
-        assertEventTimes(resumedPlay, resumedPlay.path("eventData"), 6, 7, 8);
+        assertEventTimes(resumedPlay, resumedPlay.path("eventData"), repeatEventSimtime(8));
+        assertIndirectFirePlanTimes(resumedPlay, resumedPlay.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(8));
+        assertCommandInfoTimes(resumedPlay, resumedPlay.path("commandInfoData"), repeatCommandInfoSimtime(8));
         assertBusinessTime(resumedPlay, 8);
         assertEquals(3, resumedPlay.path("speed").asInt());
 
@@ -724,39 +765,57 @@ class PlanDeduceIntegrationTest {
         assertCompatibilityArraysEmpty(init);
         assertTrue(init.path("data").isArray());
         assertTrue(init.path("eventData").isArray());
+        assertTrue(init.path("indrectFirePlanData").isArray());
+        assertTrue(init.path("commandInfoData").isArray());
 
         JsonNode firstPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
         assertCompatibilityArraysEmpty(firstPlay);
         assertSimtimes(firstPlay, firstPlay.path("data"), repeatSimtime(1));
-        assertEventTimes(firstPlay, firstPlay.path("eventData"), 1);
+        assertEventTimes(firstPlay, firstPlay.path("eventData"), repeatEventSimtime(1));
+        assertIndirectFirePlanTimes(firstPlay, firstPlay.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(1));
+        assertCommandInfoTimes(firstPlay, firstPlay.path("commandInfoData"), repeatCommandInfoSimtime(1));
 
         call("/plan/skip?dbName=" + DB_NAME + "&skip=13&sessionId=" + sessionId);
         JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
         assertCompatibilityArraysEmpty(skip);
         assertSimtimes(skip, skip.path("data"), repeatSimtime(13));
-        assertEventTimes(skip, skip.path("eventData"), range(0, 13));
+        assertEventTimes(skip, skip.path("eventData"), repeatEventSimtime(13));
+        assertIndirectFirePlanTimes(skip, skip.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(13));
+        assertCommandInfoTimes(skip, skip.path("commandInfoData"), repeatCommandInfoSimtime(13));
     }
 
     @Test
-    void shouldUseFullSnapshotOnlyAtIntervalPointAndIncrementOnlyOffInterval() throws Exception {
+    void shouldUseIncrementalDataForInitAndPlayEvenAtIntervalPoint() throws Exception {
         String sessionId = newSessionId();
         TestWebSocketClient socket = connect(sessionId);
 
-        initializeAndStart(socket, DB_NAME, 9, sessionId);
+        JsonNode init = initializeAndStart(socket, DB_NAME, 9, sessionId);
+        assertEquals(9, init.path("realTime").asInt());
+        assertEquals(9, init.path("deduceTime").asInt());
+        assertEquals(0, init.path("fullTime").asInt());
+        assertCompatibilityArraysEmpty(init);
+        assertSimtimes(init, init.path("data"), repeatSimtime(9));
+        assertEventTimes(init, init.path("eventData"), repeatEventSimtime(9));
+        assertIndirectFirePlanTimes(init, init.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(9));
+        assertCommandInfoTimes(init, init.path("commandInfoData"), repeatCommandInfoSimtime(9));
 
         JsonNode intervalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
         assertEquals(10, intervalPlay.path("realTime").asInt());
         assertEquals(10, intervalPlay.path("fullTime").asInt());
         assertCompatibilityArraysEmpty(intervalPlay);
         assertSimtimes(intervalPlay, intervalPlay.path("data"), repeatSimtime(10));
-        assertEventTimes(intervalPlay, intervalPlay.path("eventData"), range(0, 10));
+        assertEventTimes(intervalPlay, intervalPlay.path("eventData"), repeatEventSimtime(10));
+        assertIndirectFirePlanTimes(intervalPlay, intervalPlay.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(10));
+        assertCommandInfoTimes(intervalPlay, intervalPlay.path("commandInfoData"), repeatCommandInfoSimtime(10));
 
         JsonNode offIntervalPlay = socket.awaitMessageOfType("PLAY", DEFAULT_TIMEOUT);
         assertEquals(11, offIntervalPlay.path("realTime").asInt());
         assertEquals(10, offIntervalPlay.path("fullTime").asInt());
         assertCompatibilityArraysEmpty(offIntervalPlay);
         assertSimtimes(offIntervalPlay, offIntervalPlay.path("data"), repeatSimtime(11));
-        assertEventTimes(offIntervalPlay, offIntervalPlay.path("eventData"), 11);
+        assertEventTimes(offIntervalPlay, offIntervalPlay.path("eventData"), repeatEventSimtime(11));
+        assertIndirectFirePlanTimes(offIntervalPlay, offIntervalPlay.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(11));
+        assertCommandInfoTimes(offIntervalPlay, offIntervalPlay.path("commandInfoData"), repeatCommandInfoSimtime(11));
     }
 
     @Test
@@ -1024,11 +1083,33 @@ class PlanDeduceIntegrationTest {
         assertEquals(expected.length, dataNode.size());
         int expectedRealTime = messageNode.path("realTime").asInt();
         for (int i = 0; i < expected.length; i++) {
-            int expectedMillisecond = expected[i] * 1000;
+            int expectedMillisecond = expected[i];
             assertEquals(expectedMillisecond, dataNode.get(i).path("simTime").asInt(), "simTime mismatch at index " + i);
             assertEquals(expectedMillisecond, dataNode.get(i).path("physicalTime").asInt(), "physicalTime mismatch at index " + i);
             assertEquals(expectedRealTime, dataNode.get(i).path("realTime").asInt(), "realTime mismatch at index " + i);
             assertEquals(DB_NAME, dataNode.get(i).path("roomId").asText(), "roomId mismatch at index " + i);
+        }
+    }
+
+    private void assertIndirectFirePlanTimes(JsonNode messageNode, JsonNode dataNode, int... expected) {
+        assertNotNull(dataNode);
+        assertEquals(expected.length, dataNode.size());
+        int expectedRealTime = messageNode.path("realTime").asInt();
+        for (int i = 0; i < expected.length; i++) {
+            int expectedMillisecond = expected[i];
+            assertEquals(expectedMillisecond, dataNode.get(i).path("simTime").asInt(), "simTime mismatch at index " + i);
+            assertEquals(expectedRealTime, dataNode.get(i).path("realTime").asInt(), "realTime mismatch at index " + i);
+        }
+    }
+
+    private void assertCommandInfoTimes(JsonNode messageNode, JsonNode dataNode, int... expected) {
+        assertNotNull(dataNode);
+        assertEquals(expected.length, dataNode.size());
+        int expectedRealTime = messageNode.path("realTime").asInt();
+        for (int i = 0; i < expected.length; i++) {
+            int expectedMillisecond = expected[i];
+            assertEquals(expectedMillisecond, dataNode.get(i).path("simTime").asInt(), "simTime mismatch at index " + i);
+            assertEquals(expectedRealTime, dataNode.get(i).path("realTime").asInt(), "realTime mismatch at index " + i);
         }
     }
 
@@ -1059,6 +1140,11 @@ class PlanDeduceIntegrationTest {
         assertEquals(0, message.path("incrementalData").size());
     }
 
+    private void assertEmptyArray(JsonNode dataNode) {
+        assertTrue(dataNode.isArray());
+        assertEquals(0, dataNode.size());
+    }
+
     private void assertBusinessTime(JsonNode message, int expected) {
         assertEquals(expected, extractBusinessTime(message));
     }
@@ -1066,6 +1152,8 @@ class PlanDeduceIntegrationTest {
     private int extractBusinessTime(JsonNode message) {
         int businessTime = maxSimTime(message.path("data"));
         businessTime = Math.max(businessTime, maxSimTime(message.path("eventData")));
+        businessTime = Math.max(businessTime, maxSimTime(message.path("indrectFirePlanData")));
+        businessTime = Math.max(businessTime, maxSimTime(message.path("commandInfoData")));
         businessTime = Math.max(businessTime, message.path("fullTime").asInt(0));
         return businessTime;
     }
@@ -1089,6 +1177,31 @@ class PlanDeduceIntegrationTest {
         }
         return values;
     }
+
+    private int[] repeatEventSimtime(int simtime) {
+        int[] values = new int[FIRE_EVENTS_PER_SECOND];
+        for (int i = 0; i < FIRE_EVENTS_PER_SECOND; i++) {
+            values[i] = simtime * 1000;
+        }
+        return values;
+    }
+
+    private int[] repeatIndrectFirePlanSimtime(int simtime) {
+        int[] values = new int[INDIRECT_FIRE_PLANS_PER_SECOND];
+        for (int i = 0; i < INDIRECT_FIRE_PLANS_PER_SECOND; i++) {
+            values[i] = simtime * 1000;
+        }
+        return values;
+    }
+
+    private int[] repeatCommandInfoSimtime(int simtime) {
+        int[] values = new int[COMMAND_INFOS_PER_SECOND];
+        for (int i = 0; i < COMMAND_INFOS_PER_SECOND; i++) {
+            values[i] = simtime * 1000;
+        }
+        return values;
+    }
+
 
     private int[] rangeRepeated(int startInclusive, int endInclusive) {
         int[] values = new int[(endInclusive - startInclusive + 1) * PIECES_PER_SECOND];
