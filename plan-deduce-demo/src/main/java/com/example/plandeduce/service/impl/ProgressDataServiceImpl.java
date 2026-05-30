@@ -30,7 +30,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     private final IndrectFirePlanDataService indrectFirePlanDataService;
     private final CommandInfoDataService commandInfoDataService;
 
-    /** 注入进度汇总层依赖的子服务与房间信息查询器。 */
+    /** 注入依赖。 */
     public ProgressDataServiceImpl(RoomInfoMapper roomInfoMapper,
                                    RoomObjectHisDataService roomObjectHisDataService,
                                    FireJudgeResultDataService fireJudgeResultDataService,
@@ -43,7 +43,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         this.commandInfoDataService = commandInfoDataService;
     }
 
-    /** 查询进度条展示所需的起始时间和总时长。 */
+    /** 查询进度条时间范围。 */
     @Override
     public ProgressTimeline queryProgressTimeline(ProgressQueryContext queryContext) {
         String dbName = queryContext.getDbName();
@@ -56,7 +56,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         }
     }
 
-    /** 统一预热三类业务数据在指定全量点下的基础快照。 */
+    /** 预热基础快照。 */
     @Override
     public void preloadFullSnapshots(ProgressSnapshotQuery snapshotQuery) {
         roomObjectHisDataService.preloadSnapshots(snapshotQuery);
@@ -137,7 +137,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return commandInfoDataService.querySnapshotIncrementalData(rangeQuery);
     }
 
-    /** 校验并读取当前库对应的房间配置记录。 */
+    /** 读取房间配置。 */
     private RoomInfo requireRoomInfo(String dbName) {
         if (dbName == null || dbName.trim().isEmpty()) {
             throw new IllegalArgumentException("dbName 不能为空");
@@ -156,7 +156,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return roomInfo;
     }
 
-    /** 将房间总时长从分钟换算为秒。 */
+    /** 分钟转秒。 */
     private Integer minutesToSeconds(Integer totalTimeMinutes) {
         if (totalTimeMinutes == null || totalTimeMinutes <= 0) {
             return 0;
@@ -164,7 +164,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return Math.multiplyExact(totalTimeMinutes, 60);
     }
 
-    /** 按统一格式输出房间起始时间。 */
+    /** 格式化开始时间。 */
     private String formatStartTime(java.util.Date startTime) {
         if (startTime == null) {
             return null;

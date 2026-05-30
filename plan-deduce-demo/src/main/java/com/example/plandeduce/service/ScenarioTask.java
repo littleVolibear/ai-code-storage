@@ -18,12 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * 单个推演任务的运行时状态。
- * dbName 表示初始化时选定的数据库连接标识；
- * 当前实现约定它同时与所选库中的 ROOM_INFO.id 保持一致。
- * 这里封装的是单个前端会话下的播放进度、倍速、暂停状态和快照查询逻辑。
- */
+/** 单个会话的播放任务。 */
 public class ScenarioTask {
     private final String dbName;
     private final String sessionId;
@@ -37,11 +32,11 @@ public class ScenarioTask {
     private final AtomicInteger speed = new AtomicInteger(1);
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean initialized = new AtomicBoolean(false);
-    // 标记本轮播放是否已经向前端推送过首次 INIT 当前秒快照，避免暂停恢复时重复初始化。
+    // 标记本轮是否已经发过 INIT。
     private final AtomicBoolean initSnapshotPushed = new AtomicBoolean(false);
     private final AtomicInteger fullSaveIntervalSeconds = new AtomicInteger(600);
     private final AtomicInteger maxSimTime = new AtomicInteger(0);
-    // 暂存待跳转的目标秒点，由 tick 线程串行消费，避免 skip 与正常播放推进并发冲突。
+    // 暂存待处理的跳点时间。
     private final AtomicReference<Integer> pendingSkipTime = new AtomicReference<>();
     private volatile ScheduledFuture<?> future;
 
@@ -61,11 +56,7 @@ public class ScenarioTask {
         this.fullSaveIntervalSeconds.set(Math.max(properties.getDefaultFullSaveIntervalSeconds(), 1));
     }
 
-    /**
-     * 初始化或重新开始任务。
-     * startTime 用于决定从哪个业务秒点开始，intervalSeconds 用于覆盖默认全量快照间隔。
-     * 当前实现会预热 0 秒快照，后续整间隔全量点由数据服务按需构造。
-     */
+    /** 初始化任务。 */
     public synchronized void initialize(Integer startTime, Integer intervalSeconds) {
         initialize(startTime, intervalSeconds, null);
     }
@@ -84,10 +75,7 @@ public class ScenarioTask {
         initSnapshotPushed.set(false);
     }
 
-    /**
-     * 单次播放推进。
-     * 每个 tick 会先判断是否可播放，再根据倍速推进 currentTime，最后推送新的快照。
-     */
+    /** 执行一次播放推进。 */
     private synchronized void tickSafely() {
         try {
             if (handlePendingSkip()) {
@@ -120,18 +108,12 @@ public class ScenarioTask {
         }
     }
 
-    /**
-     * 跳转到指定秒点，并立即推送该秒点对应的全量+增量快照。
-     * 这里仅登记待处理跳点，真正的串行消费和推送由播放线程负责。
-     */
+    /** 登记跳点时间。 */
     public synchronized void skip(Integer targetTime) {
         pendingSkipTime.set(Math.max(targetTime, 0));
     }
 
-    /**
-     * 跳点后强制进入播放态。
-     * 如果任务此前尚未开始，会先补 INIT；如果已经暂停过，会先发 START，再由 worker 消费 SKIP。
-     */
+    /** 跳点后继续播放。 */
     public synchronized void skipAndResume(Integer targetTime) {
         skip(targetTime);
         if (!running.get()) {
@@ -139,13 +121,7 @@ public class ScenarioTask {
         }
     }
 
-    /**
-     * 调整播放倍速。
-     * 重要规则：
-     * 1. speed=0 等价于暂停；
-     * 2. 这里只负责更新倍速和 running 标记，是否自动恢复由外层 setSpeedAndResume 决定；
-     * 3. 已播放状态下改倍速，下一帧会按新倍速推进。
-     */
+    /** 设置播放倍速。 */
     public void setSpeed(Integer newSpeed) {
         int value = newSpeed == null ? 1 : newSpeed;
         boolean wasRunning = running.get();
@@ -158,11 +134,7 @@ public class ScenarioTask {
         pushStatus("SPEED", calculateNearestFullTime(currentTime.get()), "倍速已设置为 " + speed.get());
     }
 
-    /**
-     * 调速后的组合入口。
-     * 先发 SPEED；当 speed>0 且当前未运行时，再根据初始化状态补 INIT 或 START。
-     * 如果当前已在播放，则不会重复进入播放态，只会让后续 tick 按新倍速推进。
-     */
+    /** 设置倍速并按需要恢复播放。 */
     public synchronized void setSpeedAndResume(Integer newSpeed) {
         setSpeed(newSpeed);
         if (newSpeed != null && newSpeed > 0 && !running.get()) {
@@ -170,10 +142,7 @@ public class ScenarioTask {
         }
     }
 
-    /**
-     * 对外统一的开始/暂停入口。
-     * flag=0 表示暂停，其余情况都按开始处理。
-     */
+    /** 统一的开始暂停入口。 */
     public void startOrStop(Integer flag) {
         if (flag != null && flag == 0) {
             pause();
@@ -182,20 +151,14 @@ public class ScenarioTask {
         }
     }
 
-    /**
-     * 暂停任务。
-     * 如果之前是 speed=0 暂停，这里会把 speed 恢复到 1，避免后续 start 后仍保持 0 倍速。
-     */
+    /** 暂停任务。 */
     public void pause() {
         running.set(false);
         speed.compareAndSet(0, 1);
         pushStatus("PAUSE", calculateNearestFullTime(currentTime.get()), "已暂停");
     }
 
-    /**
-     * 从当前时间恢复播放。
-     * 首次开始会先发 INIT；结束后再次开始会重置到 0 重播。
-     */
+    /** 从当前时间继续播放。 */
     public void resume() {
         if (speed.get() <= 0) {
             speed.set(1);
@@ -218,9 +181,7 @@ public class ScenarioTask {
         pushStatus("START", calculateNearestFullTime(currentTime.get()), "已开始");
     }
 
-    /**
-     * 修改全量快照间隔，并立即返回当前秒点在新规则下的快照结果。
-     */
+    /** 修改全量快照间隔。 */
     public synchronized void updateFullSaveInterval(Integer intervalSeconds) {
         if (intervalSeconds == null || intervalSeconds <= 0) {
             throw new IllegalArgumentException("全量保存间隔必须大于 0 秒");
@@ -230,10 +191,7 @@ public class ScenarioTask {
         pushCurrentIncrementalSnapshot("INTERVAL");
     }
 
-    /**
-     * 销毁任务并取消定时器。
-     * destroy 是彻底释放资源，不等价于 pause。
-     */
+    /** 销毁任务。 */
     public synchronized void stopAndDestroy() {
         running.set(false);
         if (future != null) {
@@ -247,10 +205,7 @@ public class ScenarioTask {
         return (time / interval) * interval;
     }
 
-    /**
-     * 推送当前秒点的增量快照。
-     * INIT、INTERVAL 这类非跳点场景只查当前秒对应的增量，不走全量快照查询。
-     */
+    /** 推送当前秒的增量数据。 */
     private void pushCurrentIncrementalSnapshot(String type) {
         int now = currentTime.get();
         int fullTime = calculateNearestFullTime(now);
@@ -281,10 +236,7 @@ public class ScenarioTask {
         );
     }
 
-    /**
-     * 播放推进时只推送当前步长区间内的增量数据，即 (previousTime, nextTime]。
-     * 即便 next 恰好命中全量间隔点，也不切换成全量查询。
-     */
+    /** 推送播放区间的增量数据。 */
     private void pushPlaySnapshot(int previousTime, int nextTime, int currentSpeed) {
         int fullTime = calculateNearestFullTime(nextTime);
         ProgressRangeQuery dataRangeQuery = new ProgressRangeQuery(dbName, previousTime, Math.min(previousTime + currentSpeed, nextTime));
@@ -315,10 +267,7 @@ public class ScenarioTask {
         );
     }
 
-    /**
-     * 推送跳点快照。
-     * 只有 SKIP 会使用最近全量点加区间增量的拼装逻辑。
-     */
+    /** 推送跳点快照。 */
     private void pushSkipSnapshot() {
         int now = currentTime.get();
         int fullTime = calculateNearestFullTime(now);
@@ -354,10 +303,7 @@ public class ScenarioTask {
         );
     }
 
-    /**
-     * 如果存在待处理 skip，就在定时任务线程中先处理跳点，再决定本轮是否继续正常播放。
-     * 返回 true 表示本轮 tick 已经消费掉一个 skip，不再继续推进播放时间。
-     */
+    /** 处理待执行的跳点。 */
     private boolean handlePendingSkip() {
         Integer targetTime = pendingSkipTime.getAndSet(null);
         if (targetTime == null) {
@@ -369,10 +315,7 @@ public class ScenarioTask {
         return true;
     }
 
-    /**
-     * 定时任务既负责播放推进，也负责消费 skip 这类需要异步串行发送的数据命令。
-     * 当前 worker 只在首次开始播放时拉起；pause / speed=0 只会让它空转，不会真正停掉线程。
-     */
+    /** 确保播放线程已启动。 */
     private void ensureWorkerScheduled() {
         if (future == null || future.isCancelled() || future.isDone()) {
             future = taskManager.getExecutor().scheduleWithFixedDelay(
@@ -388,10 +331,7 @@ public class ScenarioTask {
         return running.get() && future != null && !future.isCancelled() && !future.isDone();
     }
 
-    /**
-     * 播放前所需的运行时准备动作。
-     * 允许重复调用，用于“先设倍速、后点击开始”这类延迟初始化场景。
-     */
+    /** 初始化运行时状态。 */
     private void initializeRuntimeState() {
         initializeRuntimeState(null);
     }
@@ -405,10 +345,7 @@ public class ScenarioTask {
         initialized.set(true);
     }
 
-    /**
-     * 推送状态类消息。
-     * 这类消息不携带 data，只用于通知前端切换播放状态或显示结束/异常结果。
-     */
+    /** 推送状态消息。 */
     private void pushStatus(String type, Integer fullTime, String text) {
         pushService.pushStatus(
                 type,
@@ -424,9 +361,7 @@ public class ScenarioTask {
         );
     }
 
-    /**
-     * 已播放到终点后再次开始时，重置到起点并沿用当前倍速与间隔配置。
-     */
+    /** 重置为重播状态。 */
     private void resetForReplay() {
         currentTime.set(0);
         realTime.set(0);

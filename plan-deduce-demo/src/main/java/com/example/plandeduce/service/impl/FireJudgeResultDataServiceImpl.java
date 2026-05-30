@@ -22,12 +22,12 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
     private final FireJudgeResultMapper fireJudgeResultMapper;
     private final Map<String, Map<Integer, Map<Integer, List<FireJudgeResult>>>> fullSnapshotCache = new ConcurrentHashMap<>();
 
-    /** 注入射击裁决表访问器。 */
+    /** 注入依赖。 */
     public FireJudgeResultDataServiceImpl(FireJudgeResultMapper fireJudgeResultMapper) {
         this.fireJudgeResultMapper = fireJudgeResultMapper;
     }
 
-    /** 预热射击裁决 0 秒基础快照。 */
+    /** 预热 0 秒快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -39,7 +39,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         }
     }
 
-    /** 查询射击裁决全量快照并返回克隆结果。 */
+    /** 查询射击裁决全量快照。 */
     @Override
     public List<FireJudgeResult> queryFullData(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -51,7 +51,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         }
     }
 
-    /** 查询射击裁决区间增量记录。 */
+    /** 查询射击裁决增量数据。 */
     @Override
     public List<FireJudgeResult> queryIncrementalData(ProgressRangeQuery rangeQuery) {
         String dbName = rangeQuery.getDbName();
@@ -68,7 +68,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         }
     }
 
-    /** 查询快照阶段使用的射击裁决补丁最终态。 */
+    /** 查询射击裁决快照补丁。 */
     @Override
     public List<FireJudgeResult> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
         String dbName = rangeQuery.getDbName();
@@ -85,7 +85,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         }
     }
 
-    /** 确保指定全量间隔下的射击裁决快照缓存已初始化。 */
+    /** 初始化射击裁决快照缓存。 */
     private void ensureSnapshotCacheInitialized(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         if (normalizedSnapshotQuery.getIntervalSeconds() <= 0) {
@@ -97,7 +97,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         }
     }
 
-    /** 获取指定秒点的射击裁决全量快照。 */
+    /** 获取射击裁决全量快照。 */
     private List<FireJudgeResult> getFullSnapshotAtCachePoint(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         ensureSnapshotCacheInitialized(normalizedSnapshotQuery);
@@ -112,7 +112,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return existingSnapshot != null ? existingSnapshot : builtSnapshot;
     }
 
-    /** 基于上一个全量点滚动构造当前射击裁决快照。 */
+    /** 构造射击裁决全量快照。 */
     private List<FireJudgeResult> buildFullSnapshotAtPoint(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         int targetTime = normalizedSnapshotQuery.getSimTime();
@@ -133,12 +133,12 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return sortData(new ArrayList<>(mergedRowsByPair.values()));
     }
 
-    /** 构造 0 秒射击裁决快照。 */
+    /** 构造 0 秒快照。 */
     private List<FireJudgeResult> buildZeroPointSnapshot() {
         return sortData(new ArrayList<>(indexByEventPair(queryRowsAtTime(0)).values()));
     }
 
-    /** 查询单秒内的射击裁决记录。 */
+    /** 查询单秒射击裁决记录。 */
     private List<FireJudgeResult> queryRowsAtTime(int simTimeValue) {
         int startMillisecond = toMillisecondStart(simTimeValue);
         int endMillisecondExclusive = toMillisecondEndExclusive(simTimeValue);
@@ -152,7 +152,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return fireJudgeResultMapper.selectList(queryWrapper);
     }
 
-    /** 查询区间内的射击裁决记录。 */
+    /** 查询区间射击裁决记录。 */
     private List<FireJudgeResult> queryRowsBetween(int fromExclusive, int toInclusive) {
         int startMillisecond = toMillisecondStart(fromExclusive + 1);
         int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
@@ -166,7 +166,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return fireJudgeResultMapper.selectList(queryWrapper);
     }
 
-    /** 获取指定库和间隔对应的射击裁决快照缓存槽位。 */
+    /** 获取射击裁决快照缓存。 */
     private Map<Integer, List<FireJudgeResult>> getCacheByTime(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
         int intervalSeconds = snapshotQuery.getIntervalSeconds();
@@ -185,7 +185,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return cacheByTime;
     }
 
-    /** 按射击方和目标方联合键建立覆盖索引。 */
+    /** 按联合键建索引。 */
     private Map<String, FireJudgeResult> indexByEventPair(List<FireJudgeResult> rows) {
         Map<String, FireJudgeResult> rowsByPair = new LinkedHashMap<>();
         for (FireJudgeResult row : rows) {
@@ -194,7 +194,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return rowsByPair;
     }
 
-    /** 按联合键维度排序并过滤空记录。 */
+    /** 按联合键排序。 */
     private List<FireJudgeResult> sortData(List<FireJudgeResult> rows) {
         if (rows == null || rows.isEmpty()) {
             return new ArrayList<>();
@@ -215,7 +215,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return filteredRows;
     }
 
-    /** 克隆射击裁决结果，避免调用方改动缓存实例。 */
+    /** 复制射击裁决数据。 */
     private List<FireJudgeResult> cloneDataList(List<FireJudgeResult> dataList) {
         if (dataList == null || dataList.isEmpty()) {
             return new ArrayList<>();
@@ -232,7 +232,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return clones;
     }
 
-    /** 规范化快照查询参数中的秒点范围。 */
+    /** 规范化快照参数。 */
     private ProgressSnapshotQuery normalizeSnapshotQuery(ProgressSnapshotQuery snapshotQuery) {
         return new ProgressSnapshotQuery(
                 snapshotQuery.getDbName(),
@@ -241,22 +241,22 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         );
     }
 
-    /** 生成射击裁决联合去重键。 */
+    /** 生成联合键。 */
     private String buildEventKey(FireJudgeResult row) {
         return row == null ? "null#null" : row.getObjId() + "#" + row.getTarObjId();
     }
 
-    /** 将秒点起始值换算为毫秒。 */
+    /** 秒转毫秒起点。 */
     private int toMillisecondStart(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0), 1000);
     }
 
-    /** 将秒点结束边界换算为毫秒开区间。 */
+    /** 秒转毫秒终点。 */
     private int toMillisecondEndExclusive(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0) + 1, 1000);
     }
 
-    /** 对可空整数做统一比较。 */
+    /** 比较可空整数。 */
     private int compareNullableInteger(Integer left, Integer right) {
         if (left == null && right == null) {
             return 0;

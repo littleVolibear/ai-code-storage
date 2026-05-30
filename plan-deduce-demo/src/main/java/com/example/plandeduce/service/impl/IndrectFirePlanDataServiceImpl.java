@@ -22,12 +22,12 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
     private final IndrectFirePlanMapper indrectFirePlanMapper;
     private final Map<String, Map<Integer, Map<Integer, List<IndrectFirePlan>>>> fullSnapshotCache = new ConcurrentHashMap<>();
 
-    /** 注入间瞄计划表访问器。 */
+    /** 注入依赖。 */
     public IndrectFirePlanDataServiceImpl(IndrectFirePlanMapper indrectFirePlanMapper) {
         this.indrectFirePlanMapper = indrectFirePlanMapper;
     }
 
-    /** 预热间瞄计划 0 秒基础快照。 */
+    /** 预热 0 秒快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -39,7 +39,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         }
     }
 
-    /** 查询间瞄计划全量快照并返回克隆结果。 */
+    /** 查询间瞄计划全量快照。 */
     @Override
     public List<IndrectFirePlan> queryFullData(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -51,7 +51,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         }
     }
 
-    /** 查询间瞄计划区间增量记录。 */
+    /** 查询间瞄计划增量数据。 */
     @Override
     public List<IndrectFirePlan> queryIncrementalData(ProgressRangeQuery rangeQuery) {
         String dbName = rangeQuery.getDbName();
@@ -68,7 +68,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         }
     }
 
-    /** 查询快照阶段使用的间瞄计划补丁最终态。 */
+    /** 查询间瞄计划快照补丁。 */
     @Override
     public List<IndrectFirePlan> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
         String dbName = rangeQuery.getDbName();
@@ -85,7 +85,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         }
     }
 
-    /** 确保指定全量间隔下的间瞄计划快照缓存已初始化。 */
+    /** 初始化间瞄计划快照缓存。 */
     private void ensureSnapshotCacheInitialized(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         if (normalizedSnapshotQuery.getIntervalSeconds() <= 0) {
@@ -97,7 +97,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         }
     }
 
-    /** 获取指定秒点的间瞄计划全量快照。 */
+    /** 获取间瞄计划全量快照。 */
     private List<IndrectFirePlan> getFullSnapshotAtCachePoint(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         ensureSnapshotCacheInitialized(normalizedSnapshotQuery);
@@ -112,7 +112,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return existingSnapshot != null ? existingSnapshot : builtSnapshot;
     }
 
-    /** 基于上一个全量点滚动构造当前间瞄计划快照。 */
+    /** 构造间瞄计划全量快照。 */
     private List<IndrectFirePlan> buildFullSnapshotAtPoint(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         int targetTime = normalizedSnapshotQuery.getSimTime();
@@ -133,12 +133,12 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return sortByIfId(new ArrayList<>(mergedRowsByIfId.values()));
     }
 
-    /** 构造 0 秒间瞄计划快照。 */
+    /** 构造 0 秒快照。 */
     private List<IndrectFirePlan> buildZeroPointSnapshot() {
         return sortByIfId(new ArrayList<>(indexByIfId(queryRowsAtTime(0)).values()));
     }
 
-    /** 查询单秒内的间瞄计划记录。 */
+    /** 查询单秒间瞄计划记录。 */
     private List<IndrectFirePlan> queryRowsAtTime(int simTimeValue) {
         int startMillisecond = toMillisecondStart(simTimeValue);
         int endMillisecondExclusive = toMillisecondEndExclusive(simTimeValue);
@@ -151,7 +151,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return indrectFirePlanMapper.selectList(queryWrapper);
     }
 
-    /** 查询区间内的间瞄计划记录。 */
+    /** 查询区间间瞄计划记录。 */
     private List<IndrectFirePlan> queryRowsBetween(int fromExclusive, int toInclusive) {
         int startMillisecond = toMillisecondStart(fromExclusive + 1);
         int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
@@ -164,7 +164,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return indrectFirePlanMapper.selectList(queryWrapper);
     }
 
-    /** 获取指定库和间隔对应的间瞄计划快照缓存槽位。 */
+    /** 获取间瞄计划快照缓存。 */
     private Map<Integer, List<IndrectFirePlan>> getCacheByTime(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
         int intervalSeconds = snapshotQuery.getIntervalSeconds();
@@ -183,7 +183,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return cacheByTime;
     }
 
-    /** 按 ifId 建立覆盖索引。 */
+    /** 按 ifId 建索引。 */
     private Map<Integer, IndrectFirePlan> indexByIfId(List<IndrectFirePlan> rows) {
         Map<Integer, IndrectFirePlan> rowsByIfId = new LinkedHashMap<>();
         for (IndrectFirePlan row : rows) {
@@ -192,7 +192,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return rowsByIfId;
     }
 
-    /** 按 ifId 排序并过滤空记录。 */
+    /** 按 ifId 排序。 */
     private List<IndrectFirePlan> sortByIfId(List<IndrectFirePlan> rows) {
         if (rows == null || rows.isEmpty()) {
             return new ArrayList<>();
@@ -207,7 +207,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return filteredRows;
     }
 
-    /** 克隆间瞄计划结果，避免调用方改动缓存实例。 */
+    /** 复制间瞄计划数据。 */
     private List<IndrectFirePlan> cloneDataList(List<IndrectFirePlan> dataList) {
         if (dataList == null || dataList.isEmpty()) {
             return new ArrayList<>();
@@ -224,7 +224,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return clones;
     }
 
-    /** 规范化快照查询参数中的秒点范围。 */
+    /** 规范化快照参数。 */
     private ProgressSnapshotQuery normalizeSnapshotQuery(ProgressSnapshotQuery snapshotQuery) {
         return new ProgressSnapshotQuery(
                 snapshotQuery.getDbName(),
@@ -233,17 +233,17 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         );
     }
 
-    /** 将秒点起始值换算为毫秒。 */
+    /** 秒转毫秒起点。 */
     private int toMillisecondStart(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0), 1000);
     }
 
-    /** 将秒点结束边界换算为毫秒开区间。 */
+    /** 秒转毫秒终点。 */
     private int toMillisecondEndExclusive(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0) + 1, 1000);
     }
 
-    /** 对可空整数做统一比较。 */
+    /** 比较可空整数。 */
     private int compareNullableInteger(Integer left, Integer right) {
         if (left == null && right == null) {
             return 0;

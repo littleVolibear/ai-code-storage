@@ -22,12 +22,12 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     private final CommandInfoMapper commandInfoMapper;
     private final Map<String, Map<Integer, Map<Integer, List<CommandInfo>>>> fullSnapshotCache = new ConcurrentHashMap<>();
 
-    /** 注入指令信息表访问器。 */
+    /** 注入依赖。 */
     public CommandInfoDataServiceImpl(CommandInfoMapper commandInfoMapper) {
         this.commandInfoMapper = commandInfoMapper;
     }
 
-    /** 预热指令信息 0 秒基础快照。 */
+    /** 预热 0 秒快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -39,7 +39,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         }
     }
 
-    /** 查询指令信息全量快照并返回克隆结果。 */
+    /** 查询指令信息全量快照。 */
     @Override
     public List<CommandInfo> queryFullData(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -51,7 +51,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         }
     }
 
-    /** 查询指令信息区间增量记录。 */
+    /** 查询指令信息增量数据。 */
     @Override
     public List<CommandInfo> queryIncrementalData(ProgressRangeQuery rangeQuery) {
         String dbName = rangeQuery.getDbName();
@@ -68,7 +68,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         }
     }
 
-    /** 查询快照阶段使用的指令信息补丁最终态。 */
+    /** 查询指令信息快照补丁。 */
     @Override
     public List<CommandInfo> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
         String dbName = rangeQuery.getDbName();
@@ -85,7 +85,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         }
     }
 
-    /** 确保指定全量间隔下的指令信息快照缓存已初始化。 */
+    /** 初始化指令信息快照缓存。 */
     private void ensureSnapshotCacheInitialized(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         if (normalizedSnapshotQuery.getIntervalSeconds() <= 0) {
@@ -97,7 +97,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         }
     }
 
-    /** 获取指定秒点的指令信息全量快照。 */
+    /** 获取指令信息全量快照。 */
     private List<CommandInfo> getFullSnapshotAtCachePoint(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         ensureSnapshotCacheInitialized(normalizedSnapshotQuery);
@@ -112,7 +112,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return existingSnapshot != null ? existingSnapshot : builtSnapshot;
     }
 
-    /** 基于上一个全量点滚动构造当前指令信息快照。 */
+    /** 构造指令信息全量快照。 */
     private List<CommandInfo> buildFullSnapshotAtPoint(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
         int targetTime = normalizedSnapshotQuery.getSimTime();
@@ -133,12 +133,12 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return sortByObjId(new ArrayList<>(mergedRowsByObjId.values()));
     }
 
-    /** 构造 0 秒指令信息快照。 */
+    /** 构造 0 秒快照。 */
     private List<CommandInfo> buildZeroPointSnapshot() {
         return sortByObjId(new ArrayList<>(indexByObjId(queryRowsAtTime(0)).values()));
     }
 
-    /** 查询单秒内的指令信息记录。 */
+    /** 查询单秒指令信息记录。 */
     private List<CommandInfo> queryRowsAtTime(int simTimeValue) {
         int startMillisecond = toMillisecondStart(simTimeValue);
         int endMillisecondExclusive = toMillisecondEndExclusive(simTimeValue);
@@ -151,7 +151,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return commandInfoMapper.selectList(queryWrapper);
     }
 
-    /** 查询区间内的指令信息记录。 */
+    /** 查询区间指令信息记录。 */
     private List<CommandInfo> queryRowsBetween(int fromExclusive, int toInclusive) {
         int startMillisecond = toMillisecondStart(fromExclusive + 1);
         int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
@@ -164,7 +164,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return commandInfoMapper.selectList(queryWrapper);
     }
 
-    /** 获取指定库和间隔对应的指令信息快照缓存槽位。 */
+    /** 获取指令信息快照缓存。 */
     private Map<Integer, List<CommandInfo>> getCacheByTime(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
         int intervalSeconds = snapshotQuery.getIntervalSeconds();
@@ -183,7 +183,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return cacheByTime;
     }
 
-    /** 按 objId 建立覆盖索引。 */
+    /** 按 objId 建索引。 */
     private Map<Integer, CommandInfo> indexByObjId(List<CommandInfo> rows) {
         Map<Integer, CommandInfo> rowsByObjId = new LinkedHashMap<>();
         for (CommandInfo row : rows) {
@@ -192,7 +192,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return rowsByObjId;
     }
 
-    /** 按 objId 排序并过滤空记录。 */
+    /** 按 objId 排序。 */
     private List<CommandInfo> sortByObjId(List<CommandInfo> rows) {
         if (rows == null || rows.isEmpty()) {
             return new ArrayList<>();
@@ -207,7 +207,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return filteredRows;
     }
 
-    /** 克隆指令信息结果，避免调用方改动缓存实例。 */
+    /** 复制指令信息数据。 */
     private List<CommandInfo> cloneDataList(List<CommandInfo> dataList) {
         if (dataList == null || dataList.isEmpty()) {
             return new ArrayList<>();
@@ -224,7 +224,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return clones;
     }
 
-    /** 规范化快照查询参数中的秒点范围。 */
+    /** 规范化快照参数。 */
     private ProgressSnapshotQuery normalizeSnapshotQuery(ProgressSnapshotQuery snapshotQuery) {
         return new ProgressSnapshotQuery(
                 snapshotQuery.getDbName(),
@@ -233,17 +233,17 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         );
     }
 
-    /** 将秒点起始值换算为毫秒。 */
+    /** 秒转毫秒起点。 */
     private int toMillisecondStart(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0), 1000);
     }
 
-    /** 将秒点结束边界换算为毫秒开区间。 */
+    /** 秒转毫秒终点。 */
     private int toMillisecondEndExclusive(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0) + 1, 1000);
     }
 
-    /** 对可空整数做统一比较。 */
+    /** 比较可空整数。 */
     private int compareNullableInteger(Integer left, Integer right) {
         if (left == null && right == null) {
             return 0;
