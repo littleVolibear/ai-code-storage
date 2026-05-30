@@ -68,6 +68,23 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         }
     }
 
+    /** 查询快照阶段使用的指令信息补丁最终态。 */
+    @Override
+    public List<CommandInfo> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
+        String dbName = rangeQuery.getDbName();
+        Integer fromExclusive = rangeQuery.getFromExclusive();
+        Integer toInclusive = rangeQuery.getToInclusive();
+        DynamicDataSourceContextHolder.set(dbName);
+        try {
+            if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
+                return new ArrayList<>();
+            }
+            return cloneDataList(sortByObjId(new ArrayList<>(indexByObjId(queryRowsBetween(fromExclusive, toInclusive)).values())));
+        } finally {
+            DynamicDataSourceContextHolder.clear();
+        }
+    }
+
     /** 确保指定全量间隔下的指令信息快照缓存已初始化。 */
     private void ensureSnapshotCacheInitialized(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);

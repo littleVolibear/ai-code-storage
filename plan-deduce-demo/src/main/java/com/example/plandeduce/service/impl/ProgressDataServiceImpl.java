@@ -95,6 +95,12 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return fireJudgeResultDataService.queryIncrementalData(rangeQuery);
     }
 
+    /** 转发射击裁决快照补丁查询。 */
+    @Override
+    public List<FireJudgeResult> queryEventSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
+        return fireJudgeResultDataService.querySnapshotIncrementalData(rangeQuery);
+    }
+
     /** 转发间瞄计划全量快照查询。 */
     @Override
     public List<IndrectFirePlan> queryIndrectFirePlanFullData(ProgressSnapshotQuery snapshotQuery) {
@@ -107,6 +113,12 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return indrectFirePlanDataService.queryIncrementalData(rangeQuery);
     }
 
+    /** 转发间瞄计划快照补丁查询。 */
+    @Override
+    public List<IndrectFirePlan> queryIndrectFirePlanSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
+        return indrectFirePlanDataService.querySnapshotIncrementalData(rangeQuery);
+    }
+
     /** 转发指令信息全量快照查询。 */
     @Override
     public List<CommandInfo> queryCommandInfoFullData(ProgressSnapshotQuery snapshotQuery) {
@@ -117,6 +129,12 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     @Override
     public List<CommandInfo> queryCommandInfoIncrementalData(ProgressRangeQuery rangeQuery) {
         return commandInfoDataService.queryIncrementalData(rangeQuery);
+    }
+
+    /** 转发指令信息快照补丁查询。 */
+    @Override
+    public List<CommandInfo> queryCommandInfoSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
+        return commandInfoDataService.querySnapshotIncrementalData(rangeQuery);
     }
 
     /** 校验并读取当前库对应的房间配置记录。 */

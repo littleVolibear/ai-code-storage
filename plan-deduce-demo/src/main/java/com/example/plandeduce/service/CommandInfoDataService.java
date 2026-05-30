@@ -12,4 +12,6 @@ public interface CommandInfoDataService {
     List<CommandInfo> queryFullData(ProgressSnapshotQuery snapshotQuery);
 
     List<CommandInfo> queryIncrementalData(ProgressRangeQuery rangeQuery);
+
+    List<CommandInfo> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery);
 }

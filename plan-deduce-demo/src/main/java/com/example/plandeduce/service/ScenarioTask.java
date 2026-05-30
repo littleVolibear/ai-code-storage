@@ -327,11 +327,11 @@ public class ScenarioTask {
         List<RoomObjectHis> fullData = progressDataService.queryCachedFullData(snapshotQuery);
         List<RoomObjectHis> incrementalData = progressDataService.querySnapshotIncrementalData(rangeQuery);
         List<FireJudgeResult> eventFullData = progressDataService.queryEventFullData(snapshotQuery);
-        List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(rangeQuery);
+        List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventSnapshotIncrementalData(rangeQuery);
         List<IndrectFirePlan> indrectFirePlanFullData = progressDataService.queryIndrectFirePlanFullData(snapshotQuery);
-        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(rangeQuery);
+        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanSnapshotIncrementalData(rangeQuery);
         List<CommandInfo> commandInfoFullData = progressDataService.queryCommandInfoFullData(snapshotQuery);
-        List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(rangeQuery);
+        List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoSnapshotIncrementalData(rangeQuery);
         pushService.pushSnapshot(
                 "SKIP",
                 dbName,

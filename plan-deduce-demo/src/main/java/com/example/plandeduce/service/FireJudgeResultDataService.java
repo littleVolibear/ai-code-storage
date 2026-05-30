@@ -12,4 +12,6 @@ public interface FireJudgeResultDataService {
     List<FireJudgeResult> queryFullData(ProgressSnapshotQuery snapshotQuery);
 
     List<FireJudgeResult> queryIncrementalData(ProgressRangeQuery rangeQuery);
+
+    List<FireJudgeResult> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery);
 }

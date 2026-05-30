@@ -12,4 +12,6 @@ public interface IndrectFirePlanDataService {
     List<IndrectFirePlan> queryFullData(ProgressSnapshotQuery snapshotQuery);
 
     List<IndrectFirePlan> queryIncrementalData(ProgressRangeQuery rangeQuery);
+
+    List<IndrectFirePlan> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery);
 }
