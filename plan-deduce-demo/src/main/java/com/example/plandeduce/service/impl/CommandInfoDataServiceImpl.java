@@ -4,14 +4,18 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.plandeduce.config.DynamicDataSourceContextHolder;
 import com.example.plandeduce.mapper.CommandInfoMapper;
+import com.example.plandeduce.mapper.RoomInfoMapper;
 import com.example.plandeduce.model.CommandInfo;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
+import com.example.plandeduce.model.RoomInfo;
 import com.example.plandeduce.service.CommandInfoDataService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,11 +24,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     private final CommandInfoMapper commandInfoMapper;
+    private final RoomInfoMapper roomInfoMapper;
     private final Map<String, Map<Integer, Map<Integer, List<CommandInfo>>>> fullSnapshotCache = new ConcurrentHashMap<>();
+    private final Map<String, Date> roomStartTimeCache = new ConcurrentHashMap<>();
 
     /** 注入依赖。 */
-    public CommandInfoDataServiceImpl(CommandInfoMapper commandInfoMapper) {
+    public CommandInfoDataServiceImpl(CommandInfoMapper commandInfoMapper, RoomInfoMapper roomInfoMapper) {
         this.commandInfoMapper = commandInfoMapper;
+        this.roomInfoMapper = roomInfoMapper;
     }
 
     /** 预热 0 秒快照。 */
@@ -33,6 +40,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         String dbName = snapshotQuery.getDbName();
         DynamicDataSourceContextHolder.set(dbName);
         try {
+            ensureRoomStartTimeLoaded(dbName);
             ensureSnapshotCacheInitialized(snapshotQuery);
         } finally {
             DynamicDataSourceContextHolder.clear();
@@ -45,6 +53,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         String dbName = snapshotQuery.getDbName();
         DynamicDataSourceContextHolder.set(dbName);
         try {
+            ensureRoomStartTimeLoaded(dbName);
             return cloneDataList(getFullSnapshotAtCachePoint(snapshotQuery));
         } finally {
             DynamicDataSourceContextHolder.clear();
@@ -59,10 +68,11 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         Integer toInclusive = rangeQuery.getToInclusive();
         DynamicDataSourceContextHolder.set(dbName);
         try {
+            ensureRoomStartTimeLoaded(dbName);
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
             }
-            return cloneDataList(queryRowsBetween(fromExclusive, toInclusive));
+            return cloneDataList(queryRowsBetween(dbName, fromExclusive, toInclusive));
         } finally {
             DynamicDataSourceContextHolder.clear();
         }
@@ -76,10 +86,11 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         Integer toInclusive = rangeQuery.getToInclusive();
         DynamicDataSourceContextHolder.set(dbName);
         try {
+            ensureRoomStartTimeLoaded(dbName);
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
             }
-            return cloneDataList(sortByObjId(new ArrayList<>(indexByObjId(queryRowsBetween(fromExclusive, toInclusive)).values())));
+            return cloneDataList(sortByObjId(new ArrayList<>(indexByObjId(queryRowsBetween(dbName, fromExclusive, toInclusive)).values())));
         } finally {
             DynamicDataSourceContextHolder.clear();
         }
@@ -93,7 +104,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         }
         Map<Integer, List<CommandInfo>> snapshotCache = getCacheByTime(normalizedSnapshotQuery);
         if (snapshotCache.get(0) == null) {
-            snapshotCache.putIfAbsent(0, buildZeroPointSnapshot());
+            snapshotCache.putIfAbsent(0, buildZeroPointSnapshot(normalizedSnapshotQuery.getDbName()));
         }
     }
 
@@ -115,53 +126,56 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     /** 构造指令信息全量快照。 */
     private List<CommandInfo> buildFullSnapshotAtPoint(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
+        String dbName = normalizedSnapshotQuery.getDbName();
         int targetTime = normalizedSnapshotQuery.getSimTime();
         if (targetTime == 0) {
-            return buildZeroPointSnapshot();
+            return buildZeroPointSnapshot(dbName);
         }
         int interval = Math.max(normalizedSnapshotQuery.getIntervalSeconds(), 1);
         int previousFullTime = Math.max(targetTime - interval, 0);
         ProgressSnapshotQuery previousSnapshotQuery = new ProgressSnapshotQuery(
-                normalizedSnapshotQuery.getDbName(),
+                dbName,
                 normalizedSnapshotQuery.getIntervalSeconds(),
                 previousFullTime
         );
         Map<Integer, CommandInfo> mergedRowsByObjId = indexByObjId(getFullSnapshotAtCachePoint(previousSnapshotQuery));
-        for (CommandInfo row : queryRowsBetween(previousFullTime, targetTime)) {
+        for (CommandInfo row : queryRowsBetween(dbName, previousFullTime, targetTime)) {
             mergedRowsByObjId.put(row.getObjId(), row);
         }
         return sortByObjId(new ArrayList<>(mergedRowsByObjId.values()));
     }
 
     /** 构造 0 秒快照。 */
-    private List<CommandInfo> buildZeroPointSnapshot() {
-        return sortByObjId(new ArrayList<>(indexByObjId(queryRowsAtTime(0)).values()));
+    private List<CommandInfo> buildZeroPointSnapshot(String dbName) {
+        return sortByObjId(new ArrayList<>(indexByObjId(queryRowsAtTime(dbName, 0)).values()));
     }
 
     /** 查询单秒指令信息记录。 */
-    private List<CommandInfo> queryRowsAtTime(int simTimeValue) {
-        int startMillisecond = toMillisecondStart(simTimeValue);
-        int endMillisecondExclusive = toMillisecondEndExclusive(simTimeValue);
+    private List<CommandInfo> queryRowsAtTime(String dbName, int simTimeValue) {
+        Date roomStartTime = getRequiredRoomStartTime(dbName);
+        Timestamp startTime = toAbsoluteTime(roomStartTime, toMillisecondStart(simTimeValue));
+        Timestamp endTimeExclusive = toAbsoluteTime(roomStartTime, toMillisecondEndExclusive(simTimeValue));
         LambdaQueryWrapper<CommandInfo> queryWrapper = Wrappers.<CommandInfo>lambdaQuery()
-                .ge(CommandInfo::getSimTime, startMillisecond)
-                .lt(CommandInfo::getSimTime, endMillisecondExclusive)
-                .orderByAsc(CommandInfo::getSimTime)
+                .ge(CommandInfo::getBeginTime, startTime)
+                .lt(CommandInfo::getBeginTime, endTimeExclusive)
+                .orderByAsc(CommandInfo::getBeginTime)
                 .orderByAsc(CommandInfo::getObjId)
                 .orderByAsc(CommandInfo::getId);
-        return commandInfoMapper.selectList(queryWrapper);
+        return hydrateSimTime(dbName, commandInfoMapper.selectList(queryWrapper));
     }
 
     /** 查询区间指令信息记录。 */
-    private List<CommandInfo> queryRowsBetween(int fromExclusive, int toInclusive) {
-        int startMillisecond = toMillisecondStart(fromExclusive + 1);
-        int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
+    private List<CommandInfo> queryRowsBetween(String dbName, int fromExclusive, int toInclusive) {
+        Date roomStartTime = getRequiredRoomStartTime(dbName);
+        Timestamp startTime = toAbsoluteTime(roomStartTime, toMillisecondStart(fromExclusive + 1));
+        Timestamp endTimeExclusive = toAbsoluteTime(roomStartTime, toMillisecondEndExclusive(toInclusive));
         LambdaQueryWrapper<CommandInfo> queryWrapper = Wrappers.<CommandInfo>lambdaQuery()
-                .ge(CommandInfo::getSimTime, startMillisecond)
-                .lt(CommandInfo::getSimTime, endMillisecondExclusive)
-                .orderByAsc(CommandInfo::getSimTime)
+                .ge(CommandInfo::getBeginTime, startTime)
+                .lt(CommandInfo::getBeginTime, endTimeExclusive)
+                .orderByAsc(CommandInfo::getBeginTime)
                 .orderByAsc(CommandInfo::getObjId)
                 .orderByAsc(CommandInfo::getId);
-        return commandInfoMapper.selectList(queryWrapper);
+        return hydrateSimTime(dbName, commandInfoMapper.selectList(queryWrapper));
     }
 
     /** 获取指令信息快照缓存。 */
@@ -233,6 +247,55 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         );
     }
 
+    /** 加载房间开始时间。 */
+    private void ensureRoomStartTimeLoaded(String dbName) {
+        if (roomStartTimeCache.containsKey(dbName)) {
+            return;
+        }
+        roomStartTimeCache.putIfAbsent(dbName, queryRoomStartTime(dbName));
+    }
+
+    /** 获取房间开始时间。 */
+    private Date getRequiredRoomStartTime(String dbName) {
+        Date roomStartTime = roomStartTimeCache.get(dbName);
+        if (roomStartTime == null) {
+            throw new IllegalStateException("未加载 ROOM_INFO.startTime: dbName=" + dbName);
+        }
+        return roomStartTime;
+    }
+
+    /** 查询房间开始时间。 */
+    private Date queryRoomStartTime(String dbName) {
+        Long roomInfoId;
+        try {
+            roomInfoId = Long.valueOf(dbName);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("dbName 必须能对应 ROOM_INFO.id");
+        }
+        RoomInfo roomInfo = roomInfoMapper.selectById(roomInfoId);
+        if (roomInfo == null || roomInfo.getStartTime() == null) {
+            throw new IllegalArgumentException("未找到 ROOM_INFO.startTime: id=" + roomInfoId);
+        }
+        return roomInfo.getStartTime();
+    }
+
+    /** 补齐 simTime。 */
+    private List<CommandInfo> hydrateSimTime(String dbName, List<CommandInfo> rows) {
+        Date roomStartTime = getRequiredRoomStartTime(dbName);
+        for (CommandInfo row : rows) {
+            if (row != null && row.getBeginTime() != null) {
+                row.setSimTime(toRelativeMillisecond(roomStartTime, row.getBeginTime()));
+            }
+        }
+        return rows;
+    }
+
+    /** 计算绝对时间。 */
+    private Timestamp toAbsoluteTime(Date roomStartTime, int millisecondOffset) {
+        long startMillis = roomStartTime.getTime();
+        return new Timestamp(startMillis + Math.max(millisecondOffset, 0));
+    }
+
     /** 秒转毫秒起点。 */
     private int toMillisecondStart(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0), 1000);
@@ -241,6 +304,11 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     /** 秒转毫秒终点。 */
     private int toMillisecondEndExclusive(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0) + 1, 1000);
+    }
+
+    /** 计算相对毫秒。 */
+    private int toRelativeMillisecond(Date roomStartTime, Timestamp beginTime) {
+        return Math.toIntExact(beginTime.getTime() - roomStartTime.getTime());
     }
 
     /** 比较可空整数。 */
