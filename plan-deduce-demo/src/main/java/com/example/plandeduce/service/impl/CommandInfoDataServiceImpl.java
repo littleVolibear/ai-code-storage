@@ -307,7 +307,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     }
 
     /** 计算相对毫秒。 */
-    private int toRelativeMillisecond(Date roomStartTime, Timestamp beginTime) {
+    private int toRelativeMillisecond(Date roomStartTime, Date beginTime) {
         return Math.toIntExact(beginTime.getTime() - roomStartTime.getTime());
     }
 
