@@ -1,9 +1,5 @@
 package com.example.plandeduce.service.impl;
 
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
-import com.example.plandeduce.config.DynamicDataSourceContextHolder;
-import com.example.plandeduce.mapper.RoomInfoMapper;
 import com.example.plandeduce.model.CommandInfo;
 import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.IndrectFirePlan;
@@ -11,12 +7,12 @@ import com.example.plandeduce.model.ProgressQueryContext;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.model.ProgressTimeline;
-import com.example.plandeduce.model.RoomInfo;
 import com.example.plandeduce.model.RoomObjectHis;
 import com.example.plandeduce.service.CommandInfoDataService;
 import com.example.plandeduce.service.FireJudgeResultDataService;
 import com.example.plandeduce.service.IndrectFirePlanDataService;
 import com.example.plandeduce.service.ProgressDataService;
+import com.example.plandeduce.service.RoomInfoService;
 import com.example.plandeduce.service.RoomObjectHisDataService;
 import org.springframework.stereotype.Service;
 
@@ -24,19 +20,19 @@ import java.util.List;
 
 @Service
 public class ProgressDataServiceImpl implements ProgressDataService {
-    private final RoomInfoMapper roomInfoMapper;
+    private final RoomInfoService roomInfoService;
     private final RoomObjectHisDataService roomObjectHisDataService;
     private final FireJudgeResultDataService fireJudgeResultDataService;
     private final IndrectFirePlanDataService indrectFirePlanDataService;
     private final CommandInfoDataService commandInfoDataService;
 
     /** 注入依赖。 */
-    public ProgressDataServiceImpl(RoomInfoMapper roomInfoMapper,
+    public ProgressDataServiceImpl(RoomInfoService roomInfoService,
                                    RoomObjectHisDataService roomObjectHisDataService,
                                    FireJudgeResultDataService fireJudgeResultDataService,
                                    IndrectFirePlanDataService indrectFirePlanDataService,
                                    CommandInfoDataService commandInfoDataService) {
-        this.roomInfoMapper = roomInfoMapper;
+        this.roomInfoService = roomInfoService;
         this.roomObjectHisDataService = roomObjectHisDataService;
         this.fireJudgeResultDataService = fireJudgeResultDataService;
         this.indrectFirePlanDataService = indrectFirePlanDataService;
@@ -46,14 +42,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     /** 查询进度条时间范围。 */
     @Override
     public ProgressTimeline queryProgressTimeline(ProgressQueryContext queryContext) {
-        String dbName = queryContext.getDbName();
-        DynamicDataSourceContextHolder.set(dbName);
-        try {
-            RoomInfo roomInfo = requireRoomInfo(dbName);
-            return new ProgressTimeline(formatStartTime(roomInfo.getStartTime()), minutesToSeconds(roomInfo.getTotalTime()));
-        } finally {
-            DynamicDataSourceContextHolder.clear();
-        }
+        return roomInfoService.queryProgressTimeline(queryContext.getDbName());
     }
 
     /** 预热基础快照。 */
@@ -137,38 +126,4 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return commandInfoDataService.querySnapshotIncrementalData(rangeQuery);
     }
 
-    /** 读取房间配置。 */
-    private RoomInfo requireRoomInfo(String dbName) {
-        if (dbName == null || dbName.trim().isEmpty()) {
-            throw new IllegalArgumentException("dbName 不能为空");
-        }
-
-        Long roomInfoId;
-        try {
-            roomInfoId = Long.valueOf(dbName);
-        } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("dbName 必须是动态数据库标识，同时满足 ROOM_INFO.id 的数字字符串约定");
-        }
-        RoomInfo roomInfo = roomInfoMapper.selectById(roomInfoId);
-        if (roomInfo == null) {
-            throw new IllegalArgumentException("未找到对应的 ROOM_INFO 记录: id=" + roomInfoId);
-        }
-        return roomInfo;
-    }
-
-    /** 分钟转秒。 */
-    private Integer minutesToSeconds(Integer totalTimeMinutes) {
-        if (totalTimeMinutes == null || totalTimeMinutes <= 0) {
-            return 0;
-        }
-        return Math.multiplyExact(totalTimeMinutes, 60);
-    }
-
-    /** 格式化开始时间。 */
-    private String formatStartTime(java.util.Date startTime) {
-        if (startTime == null) {
-            return null;
-        }
-        return DateUtil.format(startTime, DatePattern.NORM_DATETIME_PATTERN);
-    }
 }

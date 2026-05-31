@@ -4,12 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.plandeduce.config.DynamicDataSourceContextHolder;
 import com.example.plandeduce.mapper.CommandInfoMapper;
-import com.example.plandeduce.mapper.RoomInfoMapper;
 import com.example.plandeduce.model.CommandInfo;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
-import com.example.plandeduce.model.RoomInfo;
 import com.example.plandeduce.service.CommandInfoDataService;
+import com.example.plandeduce.service.RoomInfoService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
@@ -24,14 +23,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     private final CommandInfoMapper commandInfoMapper;
-    private final RoomInfoMapper roomInfoMapper;
+    private final RoomInfoService roomInfoService;
     private final Map<String, Map<Integer, Map<Integer, List<CommandInfo>>>> fullSnapshotCache = new ConcurrentHashMap<>();
     private final Map<String, Date> roomStartTimeCache = new ConcurrentHashMap<>();
 
     /** 注入依赖。 */
-    public CommandInfoDataServiceImpl(CommandInfoMapper commandInfoMapper, RoomInfoMapper roomInfoMapper) {
+    public CommandInfoDataServiceImpl(CommandInfoMapper commandInfoMapper, RoomInfoService roomInfoService) {
         this.commandInfoMapper = commandInfoMapper;
-        this.roomInfoMapper = roomInfoMapper;
+        this.roomInfoService = roomInfoService;
     }
 
     /** 预热 0 秒快照。 */
@@ -252,7 +251,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         if (roomStartTimeCache.containsKey(dbName)) {
             return;
         }
-        roomStartTimeCache.putIfAbsent(dbName, queryRoomStartTime(dbName));
+        roomStartTimeCache.putIfAbsent(dbName, roomInfoService.queryRequiredStartTime(dbName));
     }
 
     /** 获取房间开始时间。 */
@@ -262,21 +261,6 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
             throw new IllegalStateException("未加载 ROOM_INFO.startTime: dbName=" + dbName);
         }
         return roomStartTime;
-    }
-
-    /** 查询房间开始时间。 */
-    private Date queryRoomStartTime(String dbName) {
-        Long roomInfoId;
-        try {
-            roomInfoId = Long.valueOf(dbName);
-        } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("dbName 必须能对应 ROOM_INFO.id");
-        }
-        RoomInfo roomInfo = roomInfoMapper.selectById(roomInfoId);
-        if (roomInfo == null || roomInfo.getStartTime() == null) {
-            throw new IllegalArgumentException("未找到 ROOM_INFO.startTime: id=" + roomInfoId);
-        }
-        return roomInfo.getStartTime();
     }
 
     /** 补齐 simTime。 */
