@@ -13,22 +13,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 进度条 WebSocket 推送门面。
- * 负责组装推送报文并发送到对应 session。
- */
+/** 负责组装并发送 WebSocket 消息。 */
 @Component
 public class PlanDeducePush {
     private final PlanDeduceWebSocketHandler webSocketHandler;
 
+    /** 注入 WebSocket 发送器。 */
     public PlanDeducePush(PlanDeduceWebSocketHandler webSocketHandler) {
         this.webSocketHandler = webSocketHandler;
     }
 
     /**
-     * 推送带数据的快照消息。
-     * 所有需要刷新进度条和数据面板的事件都应经过这个入口，避免业务代码散落拼接 PushMessage。
-     * 这里会把 fullData 和 incrementalData 按 roomObjectId 覆盖合并到 data 字段，供前端直接消费。
+     * 推送快照消息。
+     * 对外只发送合并后的数据字段，兼容字段固定置空。
      */
     public void pushSnapshot(String type,
                              String dbName,
@@ -86,10 +83,7 @@ public class PlanDeducePush {
         webSocketHandler.sendToSession(sessionId, message);
     }
 
-    /**
-     * 推送纯状态消息。
-     * 这类消息不包含快照数据，只负责通知前端切换播放状态、结束状态或错误状态。
-     */
+    /** 推送状态消息。 */
     public void pushStatus(String type,
                            String dbName,
                            String sessionId,
@@ -105,9 +99,7 @@ public class PlanDeducePush {
         webSocketHandler.sendToSession(sessionId, message);
     }
 
-    /**
-     * 统一构造基础协议字段，确保所有事件类型结构一致。
-     */
+    /** 构造基础消息。 */
     private PushMessage buildBaseMessage(String type,
                                          String dbName,
                                          String sessionId,
@@ -130,9 +122,7 @@ public class PlanDeducePush {
         return message;
     }
 
-    /**
-     * 统一生成快照类消息的说明文案，方便前端日志和联调时直观看出数据组成。
-     */
+    /** 生成快照说明文案。 */
     private String buildSnapshotMessage(String type, int realTime, int deduceTime, int fullTime, int incrementalFromExclusive) {
         if ("SKIP".equals(type) && fullTime == deduceTime) {
             return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + fullTime + " 秒全量数据";
@@ -148,6 +138,7 @@ public class PlanDeducePush {
         return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + incrementalStart + "-" + deduceTime + " 秒增量数据";
     }
 
+    /** 合并对象数据。 */
     private List<RoomObjectHis> mergeRoomObjectData(List<RoomObjectHis> fullData, List<RoomObjectHis> incrementalData) {
         Map<Integer, RoomObjectHis> rowsByObjectId = new LinkedHashMap<>();
         for (RoomObjectHis row : fullData) {
@@ -163,6 +154,7 @@ public class PlanDeducePush {
         return new ArrayList<>(rowsByObjectId.values());
     }
 
+    /** 设置对象数据的真实时间。 */
     private void hydrateRoomObjectRealTime(List<RoomObjectHis> data, int realTime) {
         for (RoomObjectHis row : data) {
             if (row != null) {
@@ -171,6 +163,7 @@ public class PlanDeducePush {
         }
     }
 
+    /** 设置事件数据的真实时间。 */
     private void hydrateEventRealTime(List<FireJudgeResult> data, int realTime) {
         for (FireJudgeResult row : data) {
             if (row != null) {
@@ -179,6 +172,7 @@ public class PlanDeducePush {
         }
     }
 
+    /** 设置间瞄计划数据的真实时间。 */
     private void hydrateIndrectFirePlanRealTime(List<IndrectFirePlan> data, int realTime) {
         for (IndrectFirePlan row : data) {
             if (row != null) {
@@ -187,6 +181,7 @@ public class PlanDeducePush {
         }
     }
 
+    /** 设置指令数据的真实时间。 */
     private void hydrateCommandInfoRealTime(List<CommandInfo> data, int realTime) {
         for (CommandInfo row : data) {
             if (row != null) {
@@ -195,22 +190,27 @@ public class PlanDeducePush {
         }
     }
 
+    /** 规整对象数据列表。 */
     private List<RoomObjectHis> safeRoomObjectList(List<RoomObjectHis> data) {
         return data == null ? Collections.emptyList() : data;
     }
 
+    /** 规整事件数据列表。 */
     private List<FireJudgeResult> safeEventDataList(List<FireJudgeResult> data) {
         return data == null ? Collections.emptyList() : data;
     }
 
+    /** 规整间瞄计划数据列表。 */
     private List<IndrectFirePlan> safeIndrectFirePlanList(List<IndrectFirePlan> data) {
         return data == null ? Collections.emptyList() : data;
     }
 
+    /** 规整指令数据列表。 */
     private List<CommandInfo> safeCommandInfoList(List<CommandInfo> data) {
         return data == null ? Collections.emptyList() : data;
     }
 
+    /** 合并事件数据。 */
     private List<FireJudgeResult> mergeEventData(List<FireJudgeResult> fullData, List<FireJudgeResult> incrementalData) {
         Map<String, FireJudgeResult> rowsByEventPair = new LinkedHashMap<>();
         for (FireJudgeResult row : fullData) {
@@ -226,6 +226,7 @@ public class PlanDeducePush {
         return new ArrayList<>(rowsByEventPair.values());
     }
 
+    /** 合并间瞄计划数据。 */
     private List<IndrectFirePlan> mergeIndrectFirePlanData(List<IndrectFirePlan> fullData, List<IndrectFirePlan> incrementalData) {
         Map<Integer, IndrectFirePlan> rowsByIfId = new LinkedHashMap<>();
         for (IndrectFirePlan row : fullData) {
@@ -241,6 +242,7 @@ public class PlanDeducePush {
         return new ArrayList<>(rowsByIfId.values());
     }
 
+    /** 合并指令数据。 */
     private List<CommandInfo> mergeCommandInfoData(List<CommandInfo> fullData, List<CommandInfo> incrementalData) {
         Map<Integer, CommandInfo> rowsByObjId = new LinkedHashMap<>();
         for (CommandInfo row : fullData) {

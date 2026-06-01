@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** 单个会话的播放任务。 */
+/** 管理单个会话的播放状态。 */
 public class ScenarioTask {
     private final String dbName;
     private final String sessionId;
@@ -40,6 +40,7 @@ public class ScenarioTask {
     private final AtomicReference<Integer> pendingSkipTime = new AtomicReference<>();
     private volatile ScheduledFuture<?> future;
 
+    /** 创建任务。 */
     public ScenarioTask(String dbName,
                         String sessionId,
                         ProgressDataService progressDataService,
@@ -61,6 +62,7 @@ public class ScenarioTask {
         initialize(startTime, intervalSeconds, null);
     }
 
+    /** 初始化任务并指定最大推演时间。 */
     public synchronized void initialize(Integer startTime, Integer intervalSeconds, Integer knownMaxSimTime) {
         if (startTime != null) {
             int safeStartTime = Math.max(startTime, 0);
@@ -121,7 +123,7 @@ public class ScenarioTask {
         }
     }
 
-    /** 设置播放倍速。 */
+    /** 设置倍速。 */
     public void setSpeed(Integer newSpeed) {
         int value = newSpeed == null ? 1 : newSpeed;
         boolean wasRunning = running.get();
@@ -134,7 +136,7 @@ public class ScenarioTask {
         pushStatus("SPEED", calculateNearestFullTime(currentTime.get()), "倍速已设置为 " + speed.get());
     }
 
-    /** 设置倍速并按需要恢复播放。 */
+    /** 设置倍速并按需恢复播放。 */
     public synchronized void setSpeedAndResume(Integer newSpeed) {
         setSpeed(newSpeed);
         if (newSpeed != null && newSpeed > 0 && !running.get()) {
@@ -158,7 +160,7 @@ public class ScenarioTask {
         pushStatus("PAUSE", calculateNearestFullTime(currentTime.get()), "已暂停");
     }
 
-    /** 从当前时间继续播放。 */
+    /** 从当前时间恢复播放。 */
     public void resume() {
         if (speed.get() <= 0) {
             speed.set(1);
@@ -181,7 +183,7 @@ public class ScenarioTask {
         pushStatus("START", calculateNearestFullTime(currentTime.get()), "已开始");
     }
 
-    /** 修改全量快照间隔。 */
+    /** 设置全量快照间隔。 */
     public synchronized void updateFullSaveInterval(Integer intervalSeconds) {
         if (intervalSeconds == null || intervalSeconds <= 0) {
             throw new IllegalArgumentException("全量保存间隔必须大于 0 秒");
@@ -200,12 +202,13 @@ public class ScenarioTask {
         pushStatus("DESTROY", calculateNearestFullTime(currentTime.get()), "任务已销毁");
     }
 
+    /** 计算最近的全量时间点。 */
     private int calculateNearestFullTime(int time) {
         int interval = Math.max(fullSaveIntervalSeconds.get(), 1);
         return (time / interval) * interval;
     }
 
-    /** 推送当前秒的增量数据。 */
+    /** 推送当前秒增量数据。 */
     private void pushCurrentIncrementalSnapshot(String type) {
         int now = currentTime.get();
         int fullTime = calculateNearestFullTime(now);
@@ -236,7 +239,7 @@ public class ScenarioTask {
         );
     }
 
-    /** 推送播放区间的增量数据。 */
+    /** 推送播放区间增量数据。 */
     private void pushPlaySnapshot(int previousTime, int nextTime, int currentSpeed) {
         int fullTime = calculateNearestFullTime(nextTime);
         ProgressRangeQuery dataRangeQuery = new ProgressRangeQuery(dbName, previousTime, Math.min(previousTime + currentSpeed, nextTime));
@@ -267,13 +270,13 @@ public class ScenarioTask {
         );
     }
 
-    /** 推送跳点快照。 */
+    /** 推送跳点数据。 */
     private void pushSkipSnapshot() {
         int now = currentTime.get();
         int fullTime = calculateNearestFullTime(now);
         ProgressSnapshotQuery snapshotQuery = new ProgressSnapshotQuery(dbName, fullSaveIntervalSeconds.get(), fullTime);
         ProgressRangeQuery rangeQuery = new ProgressRangeQuery(dbName, fullTime, now);
-        List<RoomObjectHis> fullData = progressDataService.queryCachedFullData(snapshotQuery);
+        List<RoomObjectHis> fullData = progressDataService.queryFullData(snapshotQuery);
         List<RoomObjectHis> incrementalData = progressDataService.querySnapshotIncrementalData(rangeQuery);
         List<FireJudgeResult> eventFullData = progressDataService.queryEventFullData(snapshotQuery);
         List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventSnapshotIncrementalData(rangeQuery);
@@ -303,7 +306,7 @@ public class ScenarioTask {
         );
     }
 
-    /** 处理待执行的跳点。 */
+    /** 处理待跳点请求。 */
     private boolean handlePendingSkip() {
         Integer targetTime = pendingSkipTime.getAndSet(null);
         if (targetTime == null) {
@@ -315,7 +318,7 @@ public class ScenarioTask {
         return true;
     }
 
-    /** 确保播放线程已启动。 */
+    /** 启动播放线程。 */
     private void ensureWorkerScheduled() {
         if (future == null || future.isCancelled() || future.isDone()) {
             future = taskManager.getExecutor().scheduleWithFixedDelay(
@@ -327,6 +330,7 @@ public class ScenarioTask {
         }
     }
 
+    /** 判断任务是否正在运行。 */
     public boolean isExecuting() {
         return running.get() && future != null && !future.isCancelled() && !future.isDone();
     }
@@ -336,6 +340,7 @@ public class ScenarioTask {
         initializeRuntimeState(null);
     }
 
+    /** 初始化运行时状态并指定最大推演时间。 */
     private void initializeRuntimeState(Integer knownMaxSimTime) {
         progressDataService.preloadFullSnapshots(new ProgressSnapshotQuery(dbName, fullSaveIntervalSeconds.get(), 0));
         Integer resolvedMaxSimTime = knownMaxSimTime != null
@@ -345,7 +350,7 @@ public class ScenarioTask {
         initialized.set(true);
     }
 
-    /** 推送状态消息。 */
+    /** 推送状态类消息。 */
     private void pushStatus(String type, Integer fullTime, String text) {
         pushService.pushStatus(
                 type,
@@ -361,7 +366,7 @@ public class ScenarioTask {
         );
     }
 
-    /** 重置为重播状态。 */
+    /** 重置重播状态。 */
     private void resetForReplay() {
         currentTime.set(0);
         realTime.set(0);

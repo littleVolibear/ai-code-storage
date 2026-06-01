@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/** 汇总进度条相关数据查询。 */
 @Service
 public class ProgressDataServiceImpl implements ProgressDataService {
     private final RoomInfoService roomInfoService;
@@ -56,11 +57,11 @@ public class ProgressDataServiceImpl implements ProgressDataService {
 
     /** 转发对象全量快照查询。 */
     @Override
-    public List<RoomObjectHis> queryCachedFullData(ProgressSnapshotQuery snapshotQuery) {
-        return roomObjectHisDataService.queryCachedFullData(snapshotQuery);
+    public List<RoomObjectHis> queryFullData(ProgressSnapshotQuery snapshotQuery) {
+        return roomObjectHisDataService.queryFullData(snapshotQuery);
     }
 
-    /** 转发对象播放增量查询。 */
+    /** 转发对象增量数据查询。 */
     @Override
     public List<RoomObjectHis> queryIncrementalData(ProgressRangeQuery rangeQuery) {
         return roomObjectHisDataService.queryIncrementalData(rangeQuery);
@@ -78,7 +79,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return fireJudgeResultDataService.queryFullData(snapshotQuery);
     }
 
-    /** 转发射击裁决增量查询。 */
+    /** 转发射击裁决增量数据查询。 */
     @Override
     public List<FireJudgeResult> queryEventIncrementalData(ProgressRangeQuery rangeQuery) {
         return fireJudgeResultDataService.queryIncrementalData(rangeQuery);
@@ -96,7 +97,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return indrectFirePlanDataService.queryFullData(snapshotQuery);
     }
 
-    /** 转发间瞄计划增量查询。 */
+    /** 转发间瞄计划增量数据查询。 */
     @Override
     public List<IndrectFirePlan> queryIndrectFirePlanIncrementalData(ProgressRangeQuery rangeQuery) {
         return indrectFirePlanDataService.queryIncrementalData(rangeQuery);
@@ -114,7 +115,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return commandInfoDataService.queryFullData(snapshotQuery);
     }
 
-    /** 转发指令信息增量查询。 */
+    /** 转发指令信息增量数据查询。 */
     @Override
     public List<CommandInfo> queryCommandInfoIncrementalData(ProgressRangeQuery rangeQuery) {
         return commandInfoDataService.queryIncrementalData(rangeQuery);

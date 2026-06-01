@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+/** 实现对象历史数据查询。 */
 public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
     private static final String SOURCE_TYPE_FULL = "FULL";
     private static final String SOURCE_TYPE_INCREMENT = "INCREMENT";
@@ -30,7 +31,7 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
         this.roomObjectMapper = roomObjectMapper;
     }
 
-    /** 预热 0 秒快照。 */
+    /** 预热基础快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -44,7 +45,7 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
 
     /** 查询对象全量快照。 */
     @Override
-    public List<RoomObjectHis> queryCachedFullData(ProgressSnapshotQuery snapshotQuery) {
+    public List<RoomObjectHis> queryFullData(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
         DynamicDataSourceContextHolder.set(dbName);
         try {
@@ -140,12 +141,12 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
         return markSourceType(sortByRoomObjectId(new ArrayList<>(mergedRowsByObjectId.values())), SOURCE_TYPE_FULL);
     }
 
-    /** 构造 0 秒快照。 */
+    /** 构造基础快照。 */
     private List<RoomObjectHis> buildZeroPointSnapshot() {
         return markSourceType(sortByRoomObjectId(queryRowsAtTime(0)), SOURCE_TYPE_FULL);
     }
 
-    /** 查询单秒对象记录。 */
+    /** 查询单秒对象数据。 */
     private List<RoomObjectHis> queryRowsAtTime(int simTime) {
         int startMillisecond = toMillisecondStart(simTime);
         int endMillisecondExclusive = toMillisecondEndExclusive(simTime);
@@ -156,7 +157,7 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
         return roomObjectMapper.selectList(queryWrapper);
     }
 
-    /** 查询区间对象记录。 */
+    /** 查询区间对象数据。 */
     private List<RoomObjectHis> queryRowsBetween(int fromExclusive, int toInclusive) {
         int startMillisecond = toMillisecondStart(fromExclusive + 1);
         int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
@@ -168,7 +169,7 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
         return roomObjectMapper.selectList(queryWrapper);
     }
 
-    /** 提取对象最后一条记录。 */
+    /** 提取对象最后一条数据。 */
     private List<RoomObjectHis> queryLatestRowsByRoomObjectId(int fromExclusive, int toInclusive) {
         Map<Integer, RoomObjectHis> latestRowsByObjectId = new LinkedHashMap<>();
         for (RoomObjectHis row : queryRowsBetween(fromExclusive, toInclusive)) {
@@ -220,7 +221,7 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
         return filteredRows;
     }
 
-    /** 设置来源标记。 */
+    /** 设置数据来源标记。 */
     private List<RoomObjectHis> markSourceType(List<RoomObjectHis> rows, String sourceType) {
         if (rows == null || rows.isEmpty()) {
             return new ArrayList<>();
@@ -233,7 +234,7 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
         return rows;
     }
 
-    /** 复制对象数据。 */
+    /** 复制对象结果数据。 */
     private List<RoomObjectHis> cloneDataList(List<RoomObjectHis> dataList, String sourceType) {
         if (dataList == null || dataList.isEmpty()) {
             return new ArrayList<>();

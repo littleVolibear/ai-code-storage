@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+/** 实现射击裁决数据查询。 */
 public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataService {
     private final FireJudgeResultMapper fireJudgeResultMapper;
     private final Map<String, Map<Integer, Map<Integer, List<FireJudgeResult>>>> fullSnapshotCache = new ConcurrentHashMap<>();
@@ -27,7 +28,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         this.fireJudgeResultMapper = fireJudgeResultMapper;
     }
 
-    /** 预热 0 秒快照。 */
+    /** 预热基础快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -133,12 +134,12 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return sortData(new ArrayList<>(mergedRowsByPair.values()));
     }
 
-    /** 构造 0 秒快照。 */
+    /** 构造基础快照。 */
     private List<FireJudgeResult> buildZeroPointSnapshot() {
         return sortData(new ArrayList<>(indexByEventPair(queryRowsAtTime(0)).values()));
     }
 
-    /** 查询单秒射击裁决记录。 */
+    /** 查询单秒射击裁决数据。 */
     private List<FireJudgeResult> queryRowsAtTime(int simTimeValue) {
         int startMillisecond = toMillisecondStart(simTimeValue);
         int endMillisecondExclusive = toMillisecondEndExclusive(simTimeValue);
@@ -152,7 +153,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return fireJudgeResultMapper.selectList(queryWrapper);
     }
 
-    /** 查询区间射击裁决记录。 */
+    /** 查询区间射击裁决数据。 */
     private List<FireJudgeResult> queryRowsBetween(int fromExclusive, int toInclusive) {
         int startMillisecond = toMillisecondStart(fromExclusive + 1);
         int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
@@ -215,7 +216,7 @@ public class FireJudgeResultDataServiceImpl implements FireJudgeResultDataServic
         return filteredRows;
     }
 
-    /** 复制射击裁决数据。 */
+    /** 复制射击裁决结果数据。 */
     private List<FireJudgeResult> cloneDataList(List<FireJudgeResult> dataList) {
         if (dataList == null || dataList.isEmpty()) {
             return new ArrayList<>();

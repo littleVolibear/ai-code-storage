@@ -11,17 +11,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
+/** 管理所有会话任务。 */
 @Service
-/** 管理所有播放任务。 */
 public class ScenarioTaskManager {
     private final Map<String, ScenarioTask> taskMap = new ConcurrentHashMap<>();
-    /** 提供任务线程池。 */
+    /** 提供调度线程池。 */
     @Getter
     private final ScheduledExecutorService executor;
     private final ProgressDataService progressDataService;
     private final PlanDeducePush pushService;
     private final PlanDeduceProperties properties;
 
+    /** 创建任务管理器。 */
     public ScenarioTaskManager(ProgressDataService progressDataService,
                                PlanDeducePush pushService,
                                PlanDeduceProperties properties) {
@@ -44,12 +45,12 @@ public class ScenarioTaskManager {
         ));
     }
 
-    /** 获取已有任务。 */
+    /** 获取任务。 */
     public ScenarioTask get(String dbName, String sessionId) {
         return taskMap.get(buildKey(dbName, sessionId));
     }
 
-    /** 删除并销毁任务。 */
+    /** 删除任务并释放资源。 */
     public void remove(String dbName, String sessionId) {
         ScenarioTask task = taskMap.remove(buildKey(dbName, sessionId));
         if (task != null) {
@@ -62,7 +63,7 @@ public class ScenarioTaskManager {
         return dbName + "::" + sessionId;
     }
 
-    /** 关闭时清理任务和线程池。 */
+    /** 关闭时清理任务。 */
     @PreDestroy
     public void destroy() {
         taskMap.values().forEach(ScenarioTask::stopAndDestroy);

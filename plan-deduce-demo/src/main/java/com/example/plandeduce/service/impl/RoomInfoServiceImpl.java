@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Date;
 
+/** 实现房间信息查询。 */
 @Service
 public class RoomInfoServiceImpl implements RoomInfoService {
     private final RoomInfoMapper roomInfoMapper;
@@ -48,7 +49,7 @@ public class RoomInfoServiceImpl implements RoomInfoService {
         return new ProgressTimeline(formatStartTime(roomInfo.getStartTime()), minutesToSeconds(roomInfo.getTotalTime()));
     }
 
-    /** 读取房间信息。 */
+    /** 加载房间信息。 */
     private RoomInfo loadRequiredRoomInfo(String dbName) {
         if (dbName == null || dbName.trim().isEmpty()) {
             throw new IllegalArgumentException("dbName 不能为空");
@@ -61,7 +62,7 @@ public class RoomInfoServiceImpl implements RoomInfoService {
         return roomInfo;
     }
 
-    /** 解析房间 ID。 */
+    /** 解析房间编号。 */
     private Long parseRoomInfoId(String dbName) {
         try {
             return Long.valueOf(dbName);
@@ -78,7 +79,7 @@ public class RoomInfoServiceImpl implements RoomInfoService {
         return Math.multiplyExact(totalTimeMinutes, 60);
     }
 
-    /** 格式化开始时间。 */
+    /** 格式化房间开始时间。 */
     private String formatStartTime(Date startTime) {
         if (startTime == null) {
             return null;

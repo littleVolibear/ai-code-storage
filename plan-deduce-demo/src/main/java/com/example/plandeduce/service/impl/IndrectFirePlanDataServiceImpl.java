@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+/** 实现间瞄计划数据查询。 */
 public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataService {
     private final IndrectFirePlanMapper indrectFirePlanMapper;
     private final Map<String, Map<Integer, Map<Integer, List<IndrectFirePlan>>>> fullSnapshotCache = new ConcurrentHashMap<>();
@@ -27,7 +28,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         this.indrectFirePlanMapper = indrectFirePlanMapper;
     }
 
-    /** 预热 0 秒快照。 */
+    /** 预热基础快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -133,12 +134,12 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return sortByIfId(new ArrayList<>(mergedRowsByIfId.values()));
     }
 
-    /** 构造 0 秒快照。 */
+    /** 构造基础快照。 */
     private List<IndrectFirePlan> buildZeroPointSnapshot() {
         return sortByIfId(new ArrayList<>(indexByIfId(queryRowsAtTime(0)).values()));
     }
 
-    /** 查询单秒间瞄计划记录。 */
+    /** 查询单秒间瞄计划数据。 */
     private List<IndrectFirePlan> queryRowsAtTime(int simTimeValue) {
         int startMillisecond = toMillisecondStart(simTimeValue);
         int endMillisecondExclusive = toMillisecondEndExclusive(simTimeValue);
@@ -151,7 +152,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return indrectFirePlanMapper.selectList(queryWrapper);
     }
 
-    /** 查询区间间瞄计划记录。 */
+    /** 查询区间间瞄计划数据。 */
     private List<IndrectFirePlan> queryRowsBetween(int fromExclusive, int toInclusive) {
         int startMillisecond = toMillisecondStart(fromExclusive + 1);
         int endMillisecondExclusive = toMillisecondEndExclusive(toInclusive);
@@ -207,7 +208,7 @@ public class IndrectFirePlanDataServiceImpl implements IndrectFirePlanDataServic
         return filteredRows;
     }
 
-    /** 复制间瞄计划数据。 */
+    /** 复制间瞄计划结果数据。 */
     private List<IndrectFirePlan> cloneDataList(List<IndrectFirePlan> dataList) {
         if (dataList == null || dataList.isEmpty()) {
             return new ArrayList<>();

@@ -5,6 +5,7 @@ import com.example.plandeduce.model.RoomInfo;
 
 import java.util.Date;
 
+/** 定义房间信息查询能力。 */
 public interface RoomInfoService {
     /** 查询房间信息。 */
     RoomInfo queryRequiredRoomInfo(String dbName);

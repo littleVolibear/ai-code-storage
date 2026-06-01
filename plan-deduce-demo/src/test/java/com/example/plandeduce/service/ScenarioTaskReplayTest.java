@@ -95,7 +95,7 @@ class ScenarioTaskReplayTest {
         }
 
         @Override
-        public List<RoomObjectHis> queryCachedFullData(ProgressSnapshotQuery snapshotQuery) {
+        public List<RoomObjectHis> queryFullData(ProgressSnapshotQuery snapshotQuery) {
             return Collections.emptyList();
         }
 

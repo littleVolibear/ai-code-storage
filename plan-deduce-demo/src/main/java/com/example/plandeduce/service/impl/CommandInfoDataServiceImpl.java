@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+/** 实现指令信息数据查询。 */
 public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     private final CommandInfoMapper commandInfoMapper;
     private final RoomInfoService roomInfoService;
@@ -33,7 +34,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         this.roomInfoService = roomInfoService;
     }
 
-    /** 预热 0 秒快照。 */
+    /** 预热基础快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
         String dbName = snapshotQuery.getDbName();
@@ -144,12 +145,12 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return sortByObjId(new ArrayList<>(mergedRowsByObjId.values()));
     }
 
-    /** 构造 0 秒快照。 */
+    /** 构造基础快照。 */
     private List<CommandInfo> buildZeroPointSnapshot(String dbName) {
         return sortByObjId(new ArrayList<>(indexByObjId(queryRowsAtTime(dbName, 0)).values()));
     }
 
-    /** 查询单秒指令信息记录。 */
+    /** 查询单秒指令信息数据。 */
     private List<CommandInfo> queryRowsAtTime(String dbName, int simTimeValue) {
         Date roomStartTime = getRequiredRoomStartTime(dbName);
         Timestamp startTime = toAbsoluteTime(roomStartTime, toMillisecondStart(simTimeValue));
@@ -163,7 +164,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return hydrateSimTime(dbName, commandInfoMapper.selectList(queryWrapper));
     }
 
-    /** 查询区间指令信息记录。 */
+    /** 查询区间指令信息数据。 */
     private List<CommandInfo> queryRowsBetween(String dbName, int fromExclusive, int toInclusive) {
         Date roomStartTime = getRequiredRoomStartTime(dbName);
         Timestamp startTime = toAbsoluteTime(roomStartTime, toMillisecondStart(fromExclusive + 1));
@@ -220,7 +221,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return filteredRows;
     }
 
-    /** 复制指令信息数据。 */
+    /** 复制指令信息结果数据。 */
     private List<CommandInfo> cloneDataList(List<CommandInfo> dataList) {
         if (dataList == null || dataList.isEmpty()) {
             return new ArrayList<>();
@@ -263,7 +264,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         return roomStartTime;
     }
 
-    /** 补齐 simTime。 */
+    /** 补齐 simTime 字段。 */
     private List<CommandInfo> hydrateSimTime(String dbName, List<CommandInfo> rows) {
         Date roomStartTime = getRequiredRoomStartTime(dbName);
         for (CommandInfo row : rows) {

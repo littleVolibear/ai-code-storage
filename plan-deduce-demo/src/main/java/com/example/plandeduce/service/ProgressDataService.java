@@ -11,6 +11,7 @@ import com.example.plandeduce.model.RoomObjectHis;
 
 import java.util.List;
 
+/** 定义进度条所需的数据查询能力。 */
 public interface ProgressDataService {
     /** 查询进度条时间范围。 */
     ProgressTimeline queryProgressTimeline(ProgressQueryContext queryContext);
@@ -19,7 +20,7 @@ public interface ProgressDataService {
     void preloadFullSnapshots(ProgressSnapshotQuery snapshotQuery);
 
     /** 查询对象全量快照。 */
-    List<RoomObjectHis> queryCachedFullData(ProgressSnapshotQuery snapshotQuery);
+    List<RoomObjectHis> queryFullData(ProgressSnapshotQuery snapshotQuery);
 
     /** 查询对象增量数据。 */
     List<RoomObjectHis> queryIncrementalData(ProgressRangeQuery rangeQuery);
