@@ -16,7 +16,7 @@
 
 ### 2.1 任务隔离
 
-当前任务只按 `sessionId` 隔离，不按 `dbName + sessionId` 隔离。
+当前任务按 `dbName + sessionId` 隔离。
 
 ### 2.2 时间字段
 
@@ -99,6 +99,10 @@
   - `realTime=13`
   - `deduceTime=13`
   - `fullTime=10`
+  - `data` 是第 13 秒对象当前状态
+  - `eventData`、`indrectFirePlanData`、`commandInfoData` 覆盖第 0 秒到第 13 秒全部数据
+  - `skipRenderData.data` 与外层 `data` 一致
+  - `skipRenderData` 里的另外三类数据只覆盖第 13 秒窗口
 
 ### TC-P0-008 暂停状态下 skip 会自动恢复
 
@@ -113,6 +117,8 @@
   - 先收到 `INTERVAL`
   - `INTERVAL` 只返回当前秒增量数据
   - 跳点后 `SKIP.fullTime=20`
+  - 跳点后的三类过程数据仍从第 0 秒返回到第 33 秒，不按第 20 秒拆成全量加增量
+  - `skipRenderData` 里的三类过程数据只覆盖第 33 秒窗口
 
 ### TC-P0-009A 播放命中整间隔点时仍只发增量
 
@@ -177,4 +183,5 @@
 3. 如果验证 3 倍速，不要写“每次 currentTime + 3”，而应写：
    - `realTime + 1`
    - `deduceTime + 3`
-4. 不要再写“多 dbName 隔离”用例，当前任务管理器只按 `sessionId` 隔离。
+4. 多 `dbName` 和多 `sessionId` 的组合都应该按 `dbName + sessionId` 隔离写用例。
+5. 如果验证初始化参数，补充校验 `checkpoint` 只在 `sendPlanDeduce` 使用，后续控制接口继续只传 `dbName`。

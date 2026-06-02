@@ -8,6 +8,7 @@ import com.example.plandeduce.model.ProgressQueryContext;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.model.RoomObjectHis;
+import com.example.plandeduce.model.SkipRenderData;
 import com.example.plandeduce.websocket.PlanDeducePush;
 
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** 管理单个会话的播放状态。 */
 public class ScenarioTask {
     private final String dbName;
+    private final AtomicReference<String> dataSourceKey = new AtomicReference<>();
     private final String sessionId;
     private final ProgressDataService progressDataService;
     private final PlanDeducePush pushService;
@@ -42,12 +44,14 @@ public class ScenarioTask {
 
     /** 创建任务。 */
     public ScenarioTask(String dbName,
+                        String dataSourceKey,
                         String sessionId,
                         ProgressDataService progressDataService,
                         PlanDeducePush pushService,
                         PlanDeduceProperties properties,
                         ScenarioTaskManager taskManager) {
         this.dbName = dbName;
+        this.dataSourceKey.set(dataSourceKey);
         this.sessionId = sessionId;
         this.progressDataService = progressDataService;
         this.pushService = pushService;
@@ -55,6 +59,11 @@ public class ScenarioTask {
         this.taskManager = taskManager;
         this.speed.set(Math.max(properties.getDefaultSpeed(), 1));
         this.fullSaveIntervalSeconds.set(Math.max(properties.getDefaultFullSaveIntervalSeconds(), 1));
+    }
+
+    /** 更新任务使用的数据源标识。 */
+    public void updateDataSourceKey(String newDataSourceKey) {
+        dataSourceKey.set(newDataSourceKey == null || newDataSourceKey.trim().isEmpty() ? dbName : newDataSourceKey);
     }
 
     /** 初始化任务。 */
@@ -212,7 +221,7 @@ public class ScenarioTask {
     private void pushCurrentIncrementalSnapshot(String type) {
         int now = currentTime.get();
         int fullTime = calculateNearestFullTime(now);
-        ProgressRangeQuery rangeQuery = new ProgressRangeQuery(dbName, now - 1, now);
+        ProgressRangeQuery rangeQuery = new ProgressRangeQuery(dbName, getDataSourceKey(), now - 1, now);
         List<RoomObjectHis> incrementalData = progressDataService.queryIncrementalData(rangeQuery);
         List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(rangeQuery);
         List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(rangeQuery);
@@ -242,8 +251,8 @@ public class ScenarioTask {
     /** 推送播放区间增量数据。 */
     private void pushPlaySnapshot(int previousTime, int nextTime, int currentSpeed) {
         int fullTime = calculateNearestFullTime(nextTime);
-        ProgressRangeQuery dataRangeQuery = new ProgressRangeQuery(dbName, previousTime, Math.min(previousTime + currentSpeed, nextTime));
-        ProgressRangeQuery eventRangeQuery = new ProgressRangeQuery(dbName, previousTime, nextTime);
+        ProgressRangeQuery dataRangeQuery = new ProgressRangeQuery(dbName, getDataSourceKey(), previousTime, Math.min(previousTime + currentSpeed, nextTime));
+        ProgressRangeQuery eventRangeQuery = new ProgressRangeQuery(dbName, getDataSourceKey(), previousTime, nextTime);
         List<RoomObjectHis> incrementalData = progressDataService.queryIncrementalData(dataRangeQuery);
         List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(eventRangeQuery);
         List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(eventRangeQuery);
@@ -274,16 +283,19 @@ public class ScenarioTask {
     private void pushSkipSnapshot() {
         int now = currentTime.get();
         int fullTime = calculateNearestFullTime(now);
-        ProgressSnapshotQuery snapshotQuery = new ProgressSnapshotQuery(dbName, fullSaveIntervalSeconds.get(), fullTime);
-        ProgressRangeQuery rangeQuery = new ProgressRangeQuery(dbName, fullTime, now);
+        ProgressSnapshotQuery snapshotQuery = new ProgressSnapshotQuery(dbName, getDataSourceKey(), fullSaveIntervalSeconds.get(), fullTime);
+        ProgressRangeQuery rangeQuery = new ProgressRangeQuery(dbName, getDataSourceKey(), fullTime, now);
+        ProgressRangeQuery replayRangeQuery = new ProgressRangeQuery(dbName, getDataSourceKey(), -1, now);
+        ProgressRangeQuery renderRangeQuery = new ProgressRangeQuery(dbName, getDataSourceKey(), now - 1, now);
         List<RoomObjectHis> fullData = progressDataService.queryFullData(snapshotQuery);
         List<RoomObjectHis> incrementalData = progressDataService.querySnapshotIncrementalData(rangeQuery);
-        List<FireJudgeResult> eventFullData = progressDataService.queryEventFullData(snapshotQuery);
-        List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventSnapshotIncrementalData(rangeQuery);
-        List<IndrectFirePlan> indrectFirePlanFullData = progressDataService.queryIndrectFirePlanFullData(snapshotQuery);
-        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanSnapshotIncrementalData(rangeQuery);
-        List<CommandInfo> commandInfoFullData = progressDataService.queryCommandInfoFullData(snapshotQuery);
-        List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoSnapshotIncrementalData(rangeQuery);
+        List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(replayRangeQuery);
+        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(replayRangeQuery);
+        List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(replayRangeQuery);
+        SkipRenderData skipRenderData = new SkipRenderData();
+        skipRenderData.setEventData(progressDataService.queryEventIncrementalData(renderRangeQuery));
+        skipRenderData.setIndrectFirePlanData(progressDataService.queryIndrectFirePlanIncrementalData(renderRangeQuery));
+        skipRenderData.setCommandInfoData(progressDataService.queryCommandInfoIncrementalData(renderRangeQuery));
         pushService.pushSnapshot(
                 "SKIP",
                 dbName,
@@ -297,12 +309,13 @@ public class ScenarioTask {
                 maxSimTime.get(),
                 fullData,
                 incrementalData,
-                eventFullData,
+                Collections.emptyList(),
                 eventIncrementalData,
-                indrectFirePlanFullData,
+                Collections.emptyList(),
                 indrectFirePlanIncrementalData,
-                commandInfoFullData,
-                commandInfoIncrementalData
+                Collections.emptyList(),
+                commandInfoIncrementalData,
+                skipRenderData
         );
     }
 
@@ -342,10 +355,10 @@ public class ScenarioTask {
 
     /** 初始化运行时状态并指定最大推演时间。 */
     private void initializeRuntimeState(Integer knownMaxSimTime) {
-        progressDataService.preloadFullSnapshots(new ProgressSnapshotQuery(dbName, fullSaveIntervalSeconds.get(), 0));
+        progressDataService.preloadFullSnapshots(new ProgressSnapshotQuery(dbName, getDataSourceKey(), fullSaveIntervalSeconds.get(), 0));
         Integer resolvedMaxSimTime = knownMaxSimTime != null
                 ? knownMaxSimTime
-                : progressDataService.queryProgressTimeline(new ProgressQueryContext(dbName)).getEndTime();
+                : progressDataService.queryProgressTimeline(new ProgressQueryContext(dbName, getDataSourceKey())).getEndTime();
         maxSimTime.set(resolvedMaxSimTime == null ? 0 : resolvedMaxSimTime);
         initialized.set(true);
     }
@@ -372,6 +385,12 @@ public class ScenarioTask {
         realTime.set(0);
         running.set(false);
         initSnapshotPushed.set(false);
+    }
+
+    /** 读取当前数据源标识。 */
+    private String getDataSourceKey() {
+        String currentDataSourceKey = dataSourceKey.get();
+        return currentDataSourceKey == null || currentDataSourceKey.trim().isEmpty() ? dbName : currentDataSourceKey;
     }
 
 }

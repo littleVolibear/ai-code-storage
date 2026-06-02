@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.plandeduce.config.DynamicDataSourceContextHolder;
 import com.example.plandeduce.mapper.CommandInfoMapper;
 import com.example.plandeduce.model.CommandInfo;
+import com.example.plandeduce.model.ProgressQueryContext;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.service.CommandInfoDataService;
@@ -37,10 +38,10 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     /** 预热基础快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
-        String dbName = snapshotQuery.getDbName();
-        DynamicDataSourceContextHolder.set(dbName);
+        String dataSourceKey = snapshotQuery.getDataSourceKey();
+        DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
-            ensureRoomStartTimeLoaded(dbName);
+            ensureRoomStartTimeLoaded(snapshotQuery.toQueryContext());
             ensureSnapshotCacheInitialized(snapshotQuery);
         } finally {
             DynamicDataSourceContextHolder.clear();
@@ -50,10 +51,10 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     /** 查询指令信息全量快照。 */
     @Override
     public List<CommandInfo> queryFullData(ProgressSnapshotQuery snapshotQuery) {
-        String dbName = snapshotQuery.getDbName();
-        DynamicDataSourceContextHolder.set(dbName);
+        String dataSourceKey = snapshotQuery.getDataSourceKey();
+        DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
-            ensureRoomStartTimeLoaded(dbName);
+            ensureRoomStartTimeLoaded(snapshotQuery.toQueryContext());
             return cloneDataList(getFullSnapshotAtCachePoint(snapshotQuery));
         } finally {
             DynamicDataSourceContextHolder.clear();
@@ -63,16 +64,16 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     /** 查询指令信息增量数据。 */
     @Override
     public List<CommandInfo> queryIncrementalData(ProgressRangeQuery rangeQuery) {
-        String dbName = rangeQuery.getDbName();
+        String dataSourceKey = rangeQuery.getDataSourceKey();
         Integer fromExclusive = rangeQuery.getFromExclusive();
         Integer toInclusive = rangeQuery.getToInclusive();
-        DynamicDataSourceContextHolder.set(dbName);
+        DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
-            ensureRoomStartTimeLoaded(dbName);
+            ensureRoomStartTimeLoaded(rangeQuery.toQueryContext());
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
             }
-            return cloneDataList(queryRowsBetween(dbName, fromExclusive, toInclusive));
+            return cloneDataList(queryRowsBetween(dataSourceKey, fromExclusive, toInclusive));
         } finally {
             DynamicDataSourceContextHolder.clear();
         }
@@ -81,16 +82,16 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     /** 查询指令信息快照补丁。 */
     @Override
     public List<CommandInfo> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-        String dbName = rangeQuery.getDbName();
+        String dataSourceKey = rangeQuery.getDataSourceKey();
         Integer fromExclusive = rangeQuery.getFromExclusive();
         Integer toInclusive = rangeQuery.getToInclusive();
-        DynamicDataSourceContextHolder.set(dbName);
+        DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
-            ensureRoomStartTimeLoaded(dbName);
+            ensureRoomStartTimeLoaded(rangeQuery.toQueryContext());
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
             }
-            return cloneDataList(sortByObjId(new ArrayList<>(indexByObjId(queryRowsBetween(dbName, fromExclusive, toInclusive)).values())));
+            return cloneDataList(sortByObjId(new ArrayList<>(indexByObjId(queryRowsBetween(dataSourceKey, fromExclusive, toInclusive)).values())));
         } finally {
             DynamicDataSourceContextHolder.clear();
         }
@@ -104,7 +105,7 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
         }
         Map<Integer, List<CommandInfo>> snapshotCache = getCacheByTime(normalizedSnapshotQuery);
         if (snapshotCache.get(0) == null) {
-            snapshotCache.putIfAbsent(0, buildZeroPointSnapshot(normalizedSnapshotQuery.getDbName()));
+            snapshotCache.putIfAbsent(0, buildZeroPointSnapshot(normalizedSnapshotQuery.getDataSourceKey()));
         }
     }
 
@@ -126,20 +127,21 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     /** 构造指令信息全量快照。 */
     private List<CommandInfo> buildFullSnapshotAtPoint(ProgressSnapshotQuery snapshotQuery) {
         ProgressSnapshotQuery normalizedSnapshotQuery = normalizeSnapshotQuery(snapshotQuery);
-        String dbName = normalizedSnapshotQuery.getDbName();
+        String dataSourceKey = normalizedSnapshotQuery.getDataSourceKey();
         int targetTime = normalizedSnapshotQuery.getSimTime();
         if (targetTime == 0) {
-            return buildZeroPointSnapshot(dbName);
+            return buildZeroPointSnapshot(dataSourceKey);
         }
         int interval = Math.max(normalizedSnapshotQuery.getIntervalSeconds(), 1);
         int previousFullTime = Math.max(targetTime - interval, 0);
         ProgressSnapshotQuery previousSnapshotQuery = new ProgressSnapshotQuery(
-                dbName,
+                normalizedSnapshotQuery.getDbName(),
+                dataSourceKey,
                 normalizedSnapshotQuery.getIntervalSeconds(),
                 previousFullTime
         );
         Map<Integer, CommandInfo> mergedRowsByObjId = indexByObjId(getFullSnapshotAtCachePoint(previousSnapshotQuery));
-        for (CommandInfo row : queryRowsBetween(dbName, previousFullTime, targetTime)) {
+        for (CommandInfo row : queryRowsBetween(dataSourceKey, previousFullTime, targetTime)) {
             mergedRowsByObjId.put(row.getObjId(), row);
         }
         return sortByObjId(new ArrayList<>(mergedRowsByObjId.values()));
@@ -180,12 +182,12 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
 
     /** 获取指令信息快照缓存。 */
     private Map<Integer, List<CommandInfo>> getCacheByTime(ProgressSnapshotQuery snapshotQuery) {
-        String dbName = snapshotQuery.getDbName();
+        String dataSourceKey = snapshotQuery.getDataSourceKey();
         int intervalSeconds = snapshotQuery.getIntervalSeconds();
-        Map<Integer, Map<Integer, List<CommandInfo>>> cacheByInterval = fullSnapshotCache.get(dbName);
+        Map<Integer, Map<Integer, List<CommandInfo>>> cacheByInterval = fullSnapshotCache.get(dataSourceKey);
         if (cacheByInterval == null) {
             Map<Integer, Map<Integer, List<CommandInfo>>> newCacheByInterval = new ConcurrentHashMap<>();
-            Map<Integer, Map<Integer, List<CommandInfo>>> existingCacheByInterval = fullSnapshotCache.putIfAbsent(dbName, newCacheByInterval);
+            Map<Integer, Map<Integer, List<CommandInfo>>> existingCacheByInterval = fullSnapshotCache.putIfAbsent(dataSourceKey, newCacheByInterval);
             cacheByInterval = existingCacheByInterval != null ? existingCacheByInterval : newCacheByInterval;
         }
         Map<Integer, List<CommandInfo>> cacheByTime = cacheByInterval.get(intervalSeconds);
@@ -242,17 +244,19 @@ public class CommandInfoDataServiceImpl implements CommandInfoDataService {
     private ProgressSnapshotQuery normalizeSnapshotQuery(ProgressSnapshotQuery snapshotQuery) {
         return new ProgressSnapshotQuery(
                 snapshotQuery.getDbName(),
+                snapshotQuery.getDataSourceKey(),
                 snapshotQuery.getIntervalSeconds(),
                 Math.max(snapshotQuery.getSimTime(), 0)
         );
     }
 
     /** 加载房间开始时间。 */
-    private void ensureRoomStartTimeLoaded(String dbName) {
-        if (roomStartTimeCache.containsKey(dbName)) {
+    private void ensureRoomStartTimeLoaded(ProgressQueryContext queryContext) {
+        String dataSourceKey = queryContext.getDataSourceKey();
+        if (roomStartTimeCache.containsKey(dataSourceKey)) {
             return;
         }
-        roomStartTimeCache.putIfAbsent(dbName, roomInfoService.queryRequiredStartTime(dbName));
+        roomStartTimeCache.putIfAbsent(dataSourceKey, roomInfoService.queryRequiredStartTime(queryContext));
     }
 
     /** 获取房间开始时间。 */

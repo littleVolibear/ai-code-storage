@@ -34,8 +34,8 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
     /** 预热基础快照。 */
     @Override
     public void preloadSnapshots(ProgressSnapshotQuery snapshotQuery) {
-        String dbName = snapshotQuery.getDbName();
-        DynamicDataSourceContextHolder.set(dbName);
+        String dataSourceKey = snapshotQuery.getDataSourceKey();
+        DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
             ensureSnapshotCacheInitialized(snapshotQuery);
         } finally {
@@ -46,8 +46,8 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
     /** 查询对象全量快照。 */
     @Override
     public List<RoomObjectHis> queryFullData(ProgressSnapshotQuery snapshotQuery) {
-        String dbName = snapshotQuery.getDbName();
-        DynamicDataSourceContextHolder.set(dbName);
+        String dataSourceKey = snapshotQuery.getDataSourceKey();
+        DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
             return cloneDataList(getFullSnapshotAtCachePoint(snapshotQuery), SOURCE_TYPE_FULL);
         } finally {
@@ -58,10 +58,10 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
     /** 查询对象增量数据。 */
     @Override
     public List<RoomObjectHis> queryIncrementalData(ProgressRangeQuery rangeQuery) {
-        String dbName = rangeQuery.getDbName();
+        String dataSourceKey = rangeQuery.getDataSourceKey();
         Integer fromExclusive = rangeQuery.getFromExclusive();
         Integer toInclusive = rangeQuery.getToInclusive();
-        DynamicDataSourceContextHolder.set(dbName);
+        DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
@@ -75,10 +75,10 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
     /** 查询对象快照补丁。 */
     @Override
     public List<RoomObjectHis> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-        String dbName = rangeQuery.getDbName();
+        String dataSourceKey = rangeQuery.getDataSourceKey();
         Integer fromExclusive = rangeQuery.getFromExclusive();
         Integer toInclusive = rangeQuery.getToInclusive();
-        DynamicDataSourceContextHolder.set(dbName);
+        DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
@@ -131,6 +131,7 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
         int previousFullTime = Math.max(targetTime - interval, 0);
         ProgressSnapshotQuery previousSnapshotQuery = new ProgressSnapshotQuery(
                 normalizedSnapshotQuery.getDbName(),
+                normalizedSnapshotQuery.getDataSourceKey(),
                 normalizedSnapshotQuery.getIntervalSeconds(),
                 previousFullTime
         );
@@ -180,12 +181,12 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
 
     /** 获取对象快照缓存。 */
     private Map<Integer, List<RoomObjectHis>> getCacheByTime(ProgressSnapshotQuery snapshotQuery) {
-        String dbName = snapshotQuery.getDbName();
+        String dataSourceKey = snapshotQuery.getDataSourceKey();
         int intervalSeconds = snapshotQuery.getIntervalSeconds();
-        Map<Integer, Map<Integer, List<RoomObjectHis>>> cacheByInterval = fullSnapshotCache.get(dbName);
+        Map<Integer, Map<Integer, List<RoomObjectHis>>> cacheByInterval = fullSnapshotCache.get(dataSourceKey);
         if (cacheByInterval == null) {
             Map<Integer, Map<Integer, List<RoomObjectHis>>> newCacheByInterval = new ConcurrentHashMap<>();
-            Map<Integer, Map<Integer, List<RoomObjectHis>>> existingCacheByInterval = fullSnapshotCache.putIfAbsent(dbName, newCacheByInterval);
+            Map<Integer, Map<Integer, List<RoomObjectHis>>> existingCacheByInterval = fullSnapshotCache.putIfAbsent(dataSourceKey, newCacheByInterval);
             cacheByInterval = existingCacheByInterval != null ? existingCacheByInterval : newCacheByInterval;
         }
         Map<Integer, List<RoomObjectHis>> cacheByTime = cacheByInterval.get(intervalSeconds);
@@ -256,6 +257,7 @@ public class RoomObjectHisDataServiceImpl implements RoomObjectHisDataService {
     private ProgressSnapshotQuery normalizeSnapshotQuery(ProgressSnapshotQuery snapshotQuery) {
         return new ProgressSnapshotQuery(
                 snapshotQuery.getDbName(),
+                snapshotQuery.getDataSourceKey(),
                 snapshotQuery.getIntervalSeconds(),
                 Math.max(snapshotQuery.getSimTime(), 0)
         );

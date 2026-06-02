@@ -70,5 +70,7 @@
 - 进度条真实播放节奏看外层 `realTime`
 - 当前推演推进到哪里看外层 `deduceTime`
 - 具体渲染哪几秒的数据，看 `data[].simTime`
-- 具体渲染哪几秒的事件，看 `eventData[].simTime`
-- 只有 `SKIP` 会在后端内部用全量点拼装状态，前端始终只消费聚合后的 `data/eventData/indrectFirePlanData/commandInfoData`
+- 具体渲染哪几秒的事件、间瞄计划、指令数据，分别看 `eventData[].simTime`、`indrectFirePlanData[].simTime`、`commandInfoData[].simTime`
+- `SKIP` 时，`data` 是跳点后的对象当前状态；`eventData`、`indrectFirePlanData`、`commandInfoData` 是第 0 秒到跳点秒的全部数据
+- `SKIP` 时，跳点特殊渲染只看 `skipRenderData`；其中 `skipRenderData.data` 与外层 `data` 一致，另外三类数据只包含跳点目标秒窗口内的数据
+- 前端始终只消费聚合后的 `data/eventData/indrectFirePlanData/commandInfoData`

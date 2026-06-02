@@ -20,7 +20,7 @@
 2. 当前时间字段已经分成两条轴：
    - `realTime`：真实 tick 时间
    - `deduceTime`：推演业务时间
-3. `data` 和 `eventData` 是前端主消费字段。
+3. `data`、`eventData`、`indrectFirePlanData`、`commandInfoData` 是前端主消费字段。
 4. `fullData` / `incrementalData` 当前对外固定为空数组，仅兼容保留。
 
 ## 2. 最常见的业务场景
@@ -155,7 +155,10 @@ HTTP：
 
 - 收到 `SKIP`
 - `deduceTime=33`
-- 同时拿到新的 `data` 和 `eventData`
+- 同时拿到新的 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 包含第 0 秒到第 33 秒的全部数据
+- `skipRenderData.data` 与外层 `data` 一致
+- `skipRenderData` 里的另外三类数据只包含第 33 秒窗口内的数据
 
 前端注意：
 
@@ -228,6 +231,6 @@ HTTP：
 ## 4. 前端要特别注意的边界
 
 1. 时间显示用 `deduceTime`，不要把 `realTime` 当业务时间。
-2. 当前任务实际只按 `sessionId` 隔离，不要试图用同一个 `sessionId` 管多个任务。
-3. `dbName` 表示 ROOM_INFO 主键 ID；任务隔离仍然只看 `sessionId`。
+2. 当前任务按 `dbName + sessionId` 隔离，不要复用同一组 `dbName + sessionId` 去管理不同任务。
+3. `dbName` 表示房间标识，也要求和 `ROOM_INFO.id` 保持一致；如果初始化时传了 `checkpoint`，后端内部会拼成 `wargame + dbName + "_" + checkpoint`。
 4. 不要在前端本地自增时间，应以后端推送为准。

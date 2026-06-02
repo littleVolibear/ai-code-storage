@@ -10,7 +10,7 @@ PlanDeduceIntegrationTest.shouldSupportDocumentedScenarioThreeFlow
 
 协议注意：
 1. 暂停时机要以后端 PLAY.realTime / PLAY.deduceTime 为准，不要用浏览器本地计时。
-2. 前端消费 data 和 eventData。
+2. 前端消费 data、eventData、indrectFirePlanData、commandInfoData。
 3. fullData / incrementalData 当前固定为空数组。
 
 详细说明见：docs/云场景三.md

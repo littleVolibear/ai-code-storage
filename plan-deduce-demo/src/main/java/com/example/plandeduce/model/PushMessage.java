@@ -12,9 +12,11 @@ public class PushMessage {
      * 含义说明：
      * 1. realTime=3：真实只过去了 1 秒，所以真实播放时间从 2 走到 3；
      * 2. deduceTime=5：推演按 3 倍速推进了 3 个秒点，所以当前推演时间走到 5；
-     * 3. data/eventData 里的 simTime 保持数据库表中的原始 simTime，不会都被改成 5；
+     * 3. data/eventData/indrectFirePlanData/commandInfoData 里的 simTime 保持数据库表中的原始 simTime，不会都被改成 5；
      * 4. 除 SKIP 外，INIT/INTERVAL/PLAY 都只查询当前时间段增量数据，不单独下发全量数据；
-     * 5. data/eventData/indrectFirePlanData/commandInfoData 里的 realTime 和外层 realTime 保持一致，
+     *    SKIP 时 data 表示 RoomObjectHis 跳点后的当前状态，另外三类数据返回第 0 秒到跳点秒的全部数据；
+     * 5. SKIP 时 skipRenderData.data 与外层 data 一致，另外三类 skipRenderData 只包含跳点目标秒窗口内的数据；
+     * 6. data/eventData/indrectFirePlanData/commandInfoData 里的 realTime 和外层 realTime 保持一致，
      *    统一表示“这条消息是在真实第几秒发出的”。
      *
      * {
@@ -63,7 +65,7 @@ public class PushMessage {
      * }
      */
     private String type; // 消息类型，如 INIT/PLAY/PAUSE/SKIP
-    private String dbName; // 动态数据库标识，对应本次推演的数据集
+    private String dbName; // 前端传入的房间标识，会原样带回给前端
     private String sessionId; // 当前前端会话标识
     private Integer realTime; // 当前真实时间轴位置，不受倍速跳跃影响
     private Integer deduceTime; // 当前推演时间轴位置，受倍速和跳点影响
@@ -72,16 +74,17 @@ public class PushMessage {
     private Boolean running; // 当前任务是否处于播放态
     private List<RoomObjectHis> fullData; // 兼容保留字段，当前对外固定为空数组
     private List<RoomObjectHis> incrementalData; // 兼容保留字段，当前对外固定为空数组
-    private List<RoomObjectHis> data; // 给前端直接消费的合并结果
-    private List<FireJudgeResult> eventData; // 当前帧对应的事件数据
+    private List<RoomObjectHis> data; // 给前端直接消费的对象状态
+    private List<FireJudgeResult> eventData; // 当前帧或 SKIP 0 到跳点秒的事件数据
     private List<FireJudgeResult> eventFullData; // 兼容保留字段，当前对外固定为空数组
     private List<FireJudgeResult> eventIncrementalData; // 兼容保留字段，当前对外固定为空数组
-    private List<IndrectFirePlan> indrectFirePlanData; // 当前帧对应的间瞄计划数据
+    private List<IndrectFirePlan> indrectFirePlanData; // 当前帧或 SKIP 0 到跳点秒的间瞄计划数据
     private List<IndrectFirePlan> indrectFirePlanFullData; // 兼容保留字段，当前对外固定为空数组
     private List<IndrectFirePlan> indrectFirePlanIncrementalData; // 兼容保留字段，当前对外固定为空数组
-    private List<CommandInfo> commandInfoData; // 当前帧对应的指令信息数据
+    private List<CommandInfo> commandInfoData; // 当前帧或 SKIP 0 到跳点秒的指令信息数据
     private List<CommandInfo> commandInfoFullData; // 兼容保留字段，当前对外固定为空数组
     private List<CommandInfo> commandInfoIncrementalData; // 兼容保留字段，当前对外固定为空数组
+    private SkipRenderData skipRenderData; // SKIP 专用，包含本次跳点需要特殊渲染的数据
     private String message; // 辅助说明文案
     private Integer maxSimTime; // 推演最大业务时间（进度条结束时间）
 }

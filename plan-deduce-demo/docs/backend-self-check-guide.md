@@ -31,12 +31,17 @@ curl "http://localhost:8080/plan/..."
 
 ### 2.1 任务唯一维度
 
-当前任务只按 `sessionId` 隔离。
+当前任务按 `dbName + sessionId` 隔离。
 
-`dbName` 当前表示 `ROOM_INFO.id`：
+`dbName` 当前表示房间标识，也要求和 `ROOM_INFO.id` 保持一致：
 
 - 会参与查询参数和回包
-- 但不会作为 `ScenarioTaskManager` 的 key
+- 也会作为 `ScenarioTaskManager` key 的一部分
+
+初始化时如果同时传了 `checkpoint`：
+
+- 后端会把动态数据源标识拼成 `wargame + dbName + "_" + checkpoint`
+- 后续控制接口继续只传原始 `dbName`
 
 ### 2.2 时间字段
 
@@ -70,7 +75,9 @@ curl "http://localhost:8080/plan/..."
 
 当前查询规则是：
 
-- 只有 `SKIP` 内部会用“最近全量点 + 区间增量”组装状态
+- `SKIP` 时，`RoomObjectHis` 对应的 `data` 仍按快照点全量数据和补丁增量组装当前状态
+- `SKIP` 时，`eventData`、`indrectFirePlanData`、`commandInfoData` 返回第 0 秒到跳点秒的全部数据
+- `SKIP` 时，`skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外三类数据只返回跳点目标秒窗口内的数据
 - `INIT`、`INTERVAL`、`PLAY` 只查各自时间段的增量数据
 
 ### 2.4 接口自动恢复行为
@@ -89,7 +96,7 @@ curl "http://localhost:8080/plan/..."
 ### 场景一：初始化后开始播放
 
 ```bash
-curl "http://localhost:8080/plan/sendPlanDeduce?dbName=1&skip=0&sessionId=s1"
+curl "http://localhost:8080/plan/sendPlanDeduce?dbName=1&checkpoint=1&skip=0&sessionId=s1"
 curl "http://localhost:8080/plan/startOrStop?dbName=1&flag=1&sessionId=s1"
 ```
 
@@ -173,8 +180,9 @@ curl "http://localhost:8080/plan/skip?dbName=1&skip=13&sessionId=s1"
 
 说明：
 
-- 具体棋子主数据看 `data`
-- 事件数据看 `eventData`
+- 具体棋子主数据看 `data`，它表示跳点后的当前对象状态
+- 事件、间瞄计划、指令数据分别看 `eventData`、`indrectFirePlanData`、`commandInfoData`，它们包含第 0 秒到跳点秒的全部数据
+- 跳点特殊渲染看 `skipRenderData`，其中三类过程数据只覆盖跳点目标秒窗口
 - 不要再按 `fullData` / `incrementalData` 验证对外报文
 
 ### 场景八：修改全量间隔

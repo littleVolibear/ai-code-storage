@@ -43,7 +43,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     /** 查询进度条时间范围。 */
     @Override
     public ProgressTimeline queryProgressTimeline(ProgressQueryContext queryContext) {
-        return roomInfoService.queryProgressTimeline(queryContext.getDbName());
+        return roomInfoService.queryProgressTimeline(queryContext);
     }
 
     /** 预热基础快照。 */

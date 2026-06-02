@@ -34,15 +34,23 @@ public class ScenarioTaskManager {
 
     /** 获取或创建任务。 */
     public ScenarioTask getOrCreate(String dbName, String sessionId) {
+        return getOrCreate(dbName, dbName, sessionId);
+    }
+
+    /** 获取或创建任务并更新数据源标识。 */
+    public ScenarioTask getOrCreate(String dbName, String dataSourceKey, String sessionId) {
         String key = buildKey(dbName, sessionId);
-        return taskMap.computeIfAbsent(key, k -> new ScenarioTask(
+        ScenarioTask task = taskMap.computeIfAbsent(key, k -> new ScenarioTask(
                 dbName,
+                dataSourceKey,
                 sessionId,
                 progressDataService,
                 pushService,
                 properties,
                 this
         ));
+        task.updateDataSourceKey(dataSourceKey);
+        return task;
     }
 
     /** 获取任务。 */

@@ -4,6 +4,7 @@ import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.date.DateUtil;
 import com.example.plandeduce.config.DynamicDataSourceContextHolder;
 import com.example.plandeduce.mapper.RoomInfoMapper;
+import com.example.plandeduce.model.ProgressQueryContext;
 import com.example.plandeduce.model.ProgressTimeline;
 import com.example.plandeduce.model.RoomInfo;
 import com.example.plandeduce.service.RoomInfoService;
@@ -23,10 +24,10 @@ public class RoomInfoServiceImpl implements RoomInfoService {
 
     /** 查询房间信息。 */
     @Override
-    public RoomInfo queryRequiredRoomInfo(String dbName) {
-        DynamicDataSourceContextHolder.set(dbName);
+    public RoomInfo queryRequiredRoomInfo(ProgressQueryContext queryContext) {
+        DynamicDataSourceContextHolder.set(queryContext.getDataSourceKey());
         try {
-            return loadRequiredRoomInfo(dbName);
+            return loadRequiredRoomInfo(queryContext);
         } finally {
             DynamicDataSourceContextHolder.clear();
         }
@@ -34,23 +35,24 @@ public class RoomInfoServiceImpl implements RoomInfoService {
 
     /** 查询房间开始时间。 */
     @Override
-    public Date queryRequiredStartTime(String dbName) {
-        RoomInfo roomInfo = queryRequiredRoomInfo(dbName);
+    public Date queryRequiredStartTime(ProgressQueryContext queryContext) {
+        RoomInfo roomInfo = queryRequiredRoomInfo(queryContext);
         if (roomInfo.getStartTime() == null) {
-            throw new IllegalArgumentException("未找到 ROOM_INFO.startTime: id=" + parseRoomInfoId(dbName));
+            throw new IllegalArgumentException("未找到 ROOM_INFO.startTime: id=" + parseRoomInfoId(queryContext.getDbName()));
         }
         return roomInfo.getStartTime();
     }
 
     /** 查询进度条时间范围。 */
     @Override
-    public ProgressTimeline queryProgressTimeline(String dbName) {
-        RoomInfo roomInfo = queryRequiredRoomInfo(dbName);
+    public ProgressTimeline queryProgressTimeline(ProgressQueryContext queryContext) {
+        RoomInfo roomInfo = queryRequiredRoomInfo(queryContext);
         return new ProgressTimeline(formatStartTime(roomInfo.getStartTime()), minutesToSeconds(roomInfo.getTotalTime()));
     }
 
     /** 加载房间信息。 */
-    private RoomInfo loadRequiredRoomInfo(String dbName) {
+    private RoomInfo loadRequiredRoomInfo(ProgressQueryContext queryContext) {
+        String dbName = queryContext.getDbName();
         if (dbName == null || dbName.trim().isEmpty()) {
             throw new IllegalArgumentException("dbName 不能为空");
         }
@@ -67,7 +69,7 @@ public class RoomInfoServiceImpl implements RoomInfoService {
         try {
             return Long.valueOf(dbName);
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("dbName 必须是动态数据库标识，同时满足 ROOM_INFO.id 的数字字符串约定");
+            throw new IllegalArgumentException("dbName 必须是 ROOM_INFO.id 的数字字符串");
         }
     }
 

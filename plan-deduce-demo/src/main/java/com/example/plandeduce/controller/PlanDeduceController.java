@@ -29,19 +29,22 @@ public class PlanDeduceController {
     /**
      * 初始化任务，但不开始播放。
      * 前端拿到时间范围后，需要再调用 startOrStop(flag=1) 才会真正开始推送 WebSocket 数据。
-     * dbName 表示初始化时选定的数据库连接标识；
-     * 当前实现约定它同时与所选库中的 ROOM_INFO.id 保持一致。
+     * dbName 表示房间编号；
+     * checkpoint 只在初始化时参与拼接动态数据源标识。
      */
     @GetMapping("/sendPlanDeduce")
     public InitProgressResponse sendPlanDeduce(@NotNull(message = "库名不能为空") @RequestParam String dbName,
+                                               @RequestParam(required = false) Integer checkpoint,
                                                @RequestParam(defaultValue = "0") Integer skip,
                                                @RequestParam(defaultValue = "default") String sessionId) {
+        String dataSourceKey = buildDataSourceKey(dbName, checkpoint);
         ScenarioTask existingTask = taskManager.get(dbName, sessionId);
         if (existingTask != null && existingTask.isExecuting()) {
             throw new IllegalArgumentException("当前任务正在执行，请先暂停或销毁后再初始化");
         }
-        ScenarioTask task = existingTask != null ? existingTask : taskManager.getOrCreate(dbName, sessionId);
-        ProgressTimeline timeline = progressDataService.queryProgressTimeline(new ProgressQueryContext(dbName));
+        ScenarioTask task = existingTask != null ? existingTask : taskManager.getOrCreate(dbName, dataSourceKey, sessionId);
+        task.updateDataSourceKey(dataSourceKey);
+        ProgressTimeline timeline = progressDataService.queryProgressTimeline(new ProgressQueryContext(dbName, dataSourceKey));
         task.initialize(skip, null, timeline.getEndTime());
         return new InitProgressResponse(dbName, sessionId, timeline.getStartTime(), String.valueOf(timeline.getEndTime()));
     }
@@ -115,5 +118,13 @@ public class PlanDeduceController {
         private final String sessionId;
         private final String startTime;
         private final String endTime;
+    }
+
+    /** 生成初始化使用的数据源标识。 */
+    private String buildDataSourceKey(String dbName, Integer checkpoint) {
+        if (checkpoint == null) {
+            return dbName;
+        }
+        return "wargame" + dbName + "_" + checkpoint;
     }
 }

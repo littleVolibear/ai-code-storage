@@ -5,6 +5,7 @@ import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.IndrectFirePlan;
 import com.example.plandeduce.model.RoomObjectHis;
 import com.example.plandeduce.model.PushMessage;
+import com.example.plandeduce.model.SkipRenderData;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -45,6 +46,52 @@ public class PlanDeducePush {
                              List<IndrectFirePlan> indrectFirePlanIncrementalData,
                              List<CommandInfo> commandInfoFullData,
                              List<CommandInfo> commandInfoIncrementalData) {
+        pushSnapshot(
+                type,
+                dbName,
+                sessionId,
+                realTime,
+                deduceTime,
+                fullTime,
+                incrementalFromExclusive,
+                speed,
+                running,
+                maxSimTime,
+                fullData,
+                incrementalData,
+                eventFullData,
+                eventIncrementalData,
+                indrectFirePlanFullData,
+                indrectFirePlanIncrementalData,
+                commandInfoFullData,
+                commandInfoIncrementalData,
+                null
+        );
+    }
+
+    /**
+     * 推送快照消息。
+     * SKIP 可额外携带目标秒窗口内的渲染数据。
+     */
+    public void pushSnapshot(String type,
+                             String dbName,
+                             String sessionId,
+                             int realTime,
+                             int deduceTime,
+                             int fullTime,
+                             int incrementalFromExclusive,
+                             int speed,
+                             boolean running,
+                             int maxSimTime,
+                             List<RoomObjectHis> fullData,
+                             List<RoomObjectHis> incrementalData,
+                             List<FireJudgeResult> eventFullData,
+                             List<FireJudgeResult> eventIncrementalData,
+                             List<IndrectFirePlan> indrectFirePlanFullData,
+                             List<IndrectFirePlan> indrectFirePlanIncrementalData,
+                             List<CommandInfo> commandInfoFullData,
+                             List<CommandInfo> commandInfoIncrementalData,
+                             SkipRenderData skipRenderData) {
         fullData = safeRoomObjectList(fullData);
         incrementalData = safeRoomObjectList(incrementalData);
         eventFullData = safeEventDataList(eventFullData);
@@ -53,6 +100,7 @@ public class PlanDeducePush {
         indrectFirePlanIncrementalData = safeIndrectFirePlanList(indrectFirePlanIncrementalData);
         commandInfoFullData = safeCommandInfoList(commandInfoFullData);
         commandInfoIncrementalData = safeCommandInfoList(commandInfoIncrementalData);
+        skipRenderData = hydrateSkipRenderData(type, skipRenderData, realTime);
         hydrateRoomObjectRealTime(fullData, realTime);
         hydrateRoomObjectRealTime(incrementalData, realTime);
         hydrateEventRealTime(eventFullData, realTime);
@@ -62,9 +110,12 @@ public class PlanDeducePush {
         hydrateCommandInfoRealTime(commandInfoFullData, realTime);
         hydrateCommandInfoRealTime(commandInfoIncrementalData, realTime);
         List<RoomObjectHis> mergedData = mergeRoomObjectData(fullData, incrementalData);
-        List<FireJudgeResult> mergedEventData = mergeEventData(eventFullData, eventIncrementalData);
-        List<IndrectFirePlan> mergedIndrectFirePlanData = mergeIndrectFirePlanData(indrectFirePlanFullData, indrectFirePlanIncrementalData);
-        List<CommandInfo> mergedCommandInfoData = mergeCommandInfoData(commandInfoFullData, commandInfoIncrementalData);
+        List<FireJudgeResult> mergedEventData = mergeEventData(type, eventFullData, eventIncrementalData);
+        List<IndrectFirePlan> mergedIndrectFirePlanData = mergeIndrectFirePlanData(type, indrectFirePlanFullData, indrectFirePlanIncrementalData);
+        List<CommandInfo> mergedCommandInfoData = mergeCommandInfoData(type, commandInfoFullData, commandInfoIncrementalData);
+        if (skipRenderData != null) {
+            skipRenderData.setData(mergedData);
+        }
 
         PushMessage message = buildBaseMessage(type, dbName, sessionId, realTime, deduceTime, fullTime, speed, running, maxSimTime);
         message.setFullData(Collections.emptyList());
@@ -79,6 +130,7 @@ public class PlanDeducePush {
         message.setCommandInfoData(mergedCommandInfoData);
         message.setCommandInfoFullData(Collections.emptyList());
         message.setCommandInfoIncrementalData(Collections.emptyList());
+        message.setSkipRenderData(skipRenderData);
         message.setMessage(buildSnapshotMessage(type, realTime, deduceTime, fullTime, incrementalFromExclusive));
         webSocketHandler.sendToSession(sessionId, message);
     }
@@ -124,12 +176,8 @@ public class PlanDeducePush {
 
     /** 生成快照说明文案。 */
     private String buildSnapshotMessage(String type, int realTime, int deduceTime, int fullTime, int incrementalFromExclusive) {
-        if ("SKIP".equals(type) && fullTime == deduceTime) {
-            return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + fullTime + " 秒全量数据";
-        }
         if ("SKIP".equals(type)) {
-            return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 "
-                    + fullTime + " 秒全量数据，并叠加第 " + (fullTime + 1) + "-" + deduceTime + " 秒增量数据";
+            return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 0-" + deduceTime + " 秒数据";
         }
         int incrementalStart = incrementalFromExclusive + 1;
         if (incrementalStart >= deduceTime) {
@@ -210,8 +258,30 @@ public class PlanDeducePush {
         return data == null ? Collections.emptyList() : data;
     }
 
-    /** 合并事件数据。 */
-    private List<FireJudgeResult> mergeEventData(List<FireJudgeResult> fullData, List<FireJudgeResult> incrementalData) {
+    /** 规整并设置跳点渲染数据的真实时间。 */
+    private SkipRenderData hydrateSkipRenderData(String type, SkipRenderData data, int realTime) {
+        if (!"SKIP".equals(type) || data == null) {
+            return null;
+        }
+        data.setData(safeRoomObjectList(data.getData()));
+        data.setEventData(safeEventDataList(data.getEventData()));
+        data.setIndrectFirePlanData(safeIndrectFirePlanList(data.getIndrectFirePlanData()));
+        data.setCommandInfoData(safeCommandInfoList(data.getCommandInfoData()));
+        hydrateRoomObjectRealTime(data.getData(), realTime);
+        hydrateEventRealTime(data.getEventData(), realTime);
+        hydrateIndrectFirePlanRealTime(data.getIndrectFirePlanData(), realTime);
+        hydrateCommandInfoRealTime(data.getCommandInfoData(), realTime);
+        return data;
+    }
+
+    /** 合并事件数据；SKIP 时保留 0 到跳点秒的完整事件列表。 */
+    private List<FireJudgeResult> mergeEventData(String type, List<FireJudgeResult> fullData, List<FireJudgeResult> incrementalData) {
+        if ("SKIP".equals(type)) {
+            List<FireJudgeResult> replayData = new ArrayList<>(fullData.size() + incrementalData.size());
+            replayData.addAll(fullData);
+            replayData.addAll(incrementalData);
+            return replayData;
+        }
         Map<String, FireJudgeResult> rowsByEventPair = new LinkedHashMap<>();
         for (FireJudgeResult row : fullData) {
             if (row != null && row.getObjId() != null && row.getTarObjId() != null) {
@@ -226,8 +296,14 @@ public class PlanDeducePush {
         return new ArrayList<>(rowsByEventPair.values());
     }
 
-    /** 合并间瞄计划数据。 */
-    private List<IndrectFirePlan> mergeIndrectFirePlanData(List<IndrectFirePlan> fullData, List<IndrectFirePlan> incrementalData) {
+    /** 合并间瞄计划数据；SKIP 时保留 0 到跳点秒的完整计划列表。 */
+    private List<IndrectFirePlan> mergeIndrectFirePlanData(String type, List<IndrectFirePlan> fullData, List<IndrectFirePlan> incrementalData) {
+        if ("SKIP".equals(type)) {
+            List<IndrectFirePlan> replayData = new ArrayList<>(fullData.size() + incrementalData.size());
+            replayData.addAll(fullData);
+            replayData.addAll(incrementalData);
+            return replayData;
+        }
         Map<Integer, IndrectFirePlan> rowsByIfId = new LinkedHashMap<>();
         for (IndrectFirePlan row : fullData) {
             if (row != null && row.getIfId() != null) {
@@ -242,8 +318,14 @@ public class PlanDeducePush {
         return new ArrayList<>(rowsByIfId.values());
     }
 
-    /** 合并指令数据。 */
-    private List<CommandInfo> mergeCommandInfoData(List<CommandInfo> fullData, List<CommandInfo> incrementalData) {
+    /** 合并指令数据；SKIP 时保留 0 到跳点秒的完整指令列表。 */
+    private List<CommandInfo> mergeCommandInfoData(String type, List<CommandInfo> fullData, List<CommandInfo> incrementalData) {
+        if ("SKIP".equals(type)) {
+            List<CommandInfo> replayData = new ArrayList<>(fullData.size() + incrementalData.size());
+            replayData.addAll(fullData);
+            replayData.addAll(incrementalData);
+            return replayData;
+        }
         Map<Integer, CommandInfo> rowsByObjId = new LinkedHashMap<>();
         for (CommandInfo row : fullData) {
             if (row != null && row.getObjId() != null) {

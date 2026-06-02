@@ -48,14 +48,23 @@ ws://localhost:8080/ws/planDeduce?sessionId=s1
 
 ### 2.2 `dbName`
 
-表示 `ROOM_INFO` 主键 ID，会原样带回 WebSocket 消息。
+表示房间标识，也要求和 `ROOM_INFO.id` 保持一致，会原样带回 WebSocket 消息。
 
 需要注意：
 
-- 当前任务不是按 `dbName + sessionId` 隔离
-- 而是只按 `sessionId` 隔离
+- 当前任务按 `dbName + sessionId` 隔离
 
-### 2.3 时间字段
+### 2.3 `checkpoint`
+
+只在初始化 `sendPlanDeduce` 时传入。
+
+后端会用它和 `dbName` 拼接动态数据源标识：
+
+- `wargame + dbName + "_" + checkpoint`
+
+后续 `skip`、`speed`、`startOrStop`、`destroy` 不需要重复传 `checkpoint`。
+
+### 2.4 时间字段
 
 当前协议里不要再把时间理解成单字段 `currentTime`。
 
@@ -81,7 +90,7 @@ GET /plan/sendPlanDeduce
 示例：
 
 ```text
-/plan/sendPlanDeduce?dbName=1&skip=0&sessionId=s1
+/plan/sendPlanDeduce?dbName=1&checkpoint=1&skip=0&sessionId=s1
 ```
 
 真实行为：
@@ -168,6 +177,8 @@ GET /plan/skip
 
 - 会推 `SKIP`
 - 会把 `deduceTime` 和 `realTime` 一起设到目标秒
+- `data` 是跳点后的对象当前状态
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 是第 0 秒到跳点秒的全部数据
 - 如果当前任务没在运行，会自动恢复
 
 常见顺序：
@@ -230,6 +241,14 @@ type PushMessage = {
   incrementalData: any[]
   data: any[]
   eventData: any[]
+  indrectFirePlanData: any[]
+  commandInfoData: any[]
+  skipRenderData?: {
+    data: any[]
+    eventData: any[]
+    indrectFirePlanData: any[]
+    commandInfoData: any[]
+  }
   message: string
   maxSimTime: number
 }
@@ -239,9 +258,12 @@ type PushMessage = {
 
 1. 当前主消费字段是 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`。
 2. `fullData` / `incrementalData` 以及对应的 `*FullData` / `*IncrementalData` 现在对外固定为空数组。
-3. 只有 `SKIP` 会在后端内部使用“最近全量点 + 区间增量”拼装当前状态。
-4. `INIT`、`INTERVAL`、`PLAY` 对前端都只是“当前时间段的数据”，不要按全量点做特殊分支。
-5. `message` 只是辅助说明，不要拿它做程序分支。
+3. `SKIP` 时，`data` 表示 `RoomObjectHis` 跳点后的当前对象状态。
+4. `SKIP` 时，`eventData`、`indrectFirePlanData`、`commandInfoData` 包含第 0 秒到跳点秒的全部数据。
+5. `SKIP` 时，`skipRenderData.data` 与外层 `data` 一致。
+6. `SKIP` 时，`skipRenderData.eventData`、`skipRenderData.indrectFirePlanData`、`skipRenderData.commandInfoData` 只包含跳点目标秒窗口内的数据，例如跳到 660 秒就是 `660000 <= simTime < 661000`。
+7. `INIT`、`INTERVAL`、`PLAY` 对前端都只是“当前时间段的数据”，不要按全量点做特殊分支。
+8. `message` 只是辅助说明，不要拿它做程序分支。
 
 ## 5. 前端消费建议
 
@@ -257,7 +279,7 @@ type PushMessage = {
 - `PAUSE`：切到暂停态
 - `START`：从暂停态恢复
 - `SPEED`：刷新倍速显示
-- `SKIP`：跳点后刷新当前状态
+- `SKIP`：跳点后刷新对象当前状态，返回三类过程数据的 0 到跳点秒全部数据，并通过 `skipRenderData` 给出本次跳点需要特殊渲染的数据
 - `INTERVAL`：全量间隔改变，重新刷新当前快照
 - `FINISH`：播放结束
 - `DESTROY`：任务销毁

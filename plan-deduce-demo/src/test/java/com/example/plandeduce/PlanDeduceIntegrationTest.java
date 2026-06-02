@@ -89,9 +89,10 @@ class PlanDeduceIntegrationTest {
         assertEquals(10, skipMessage.path("fullTime").asInt());
         assertEquals(11, skipMessage.path("deduceTime").asInt());
         assertSimtimes(skipMessage, skipMessage.path("data"), repeatSimtime(11));
-        assertEventTimes(skipMessage, skipMessage.path("eventData"), repeatEventSimtime(11));
-        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(11));
-        assertCommandInfoTimes(skipMessage, skipMessage.path("commandInfoData"), repeatCommandInfoSimtime(11));
+        assertEventTimes(skipMessage, skipMessage.path("eventData"), rangeRepeatedEvents(0, 11));
+        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), rangeRepeatedIndirectFirePlans(0, 11));
+        assertCommandInfoTimes(skipMessage, skipMessage.path("commandInfoData"), rangeRepeatedCommandInfos(0, 11));
+        assertSkipRenderData(skipMessage, 11);
         assertEmptyArray(skipMessage.path("eventFullData"));
         assertEmptyArray(skipMessage.path("eventIncrementalData"));
         assertEmptyArray(skipMessage.path("indrectFirePlanFullData"));
@@ -114,9 +115,10 @@ class PlanDeduceIntegrationTest {
         assertEquals(10, skipMessage.path("fullTime").asInt());
         assertEquals(13, skipMessage.path("deduceTime").asInt());
         assertSimtimes(skipMessage, skipMessage.path("data"), repeatSimtime(13));
-        assertEventTimes(skipMessage, skipMessage.path("eventData"), repeatEventSimtime(13));
-        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(13));
-        assertCommandInfoTimes(skipMessage, skipMessage.path("commandInfoData"), repeatCommandInfoSimtime(13));
+        assertEventTimes(skipMessage, skipMessage.path("eventData"), rangeRepeatedEvents(0, 13));
+        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), rangeRepeatedIndirectFirePlans(0, 13));
+        assertCommandInfoTimes(skipMessage, skipMessage.path("commandInfoData"), rangeRepeatedCommandInfos(0, 13));
+        assertSkipRenderData(skipMessage, 13);
         assertEmptyArray(skipMessage.path("eventFullData"));
         assertEmptyArray(skipMessage.path("eventIncrementalData"));
         assertEmptyArray(skipMessage.path("indrectFirePlanFullData"));
@@ -779,9 +781,10 @@ class PlanDeduceIntegrationTest {
         JsonNode skip = socket.awaitMessageOfType("SKIP", DEFAULT_TIMEOUT);
         assertCompatibilityArraysEmpty(skip);
         assertSimtimes(skip, skip.path("data"), repeatSimtime(13));
-        assertEventTimes(skip, skip.path("eventData"), repeatEventSimtime(13));
-        assertIndirectFirePlanTimes(skip, skip.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(13));
-        assertCommandInfoTimes(skip, skip.path("commandInfoData"), repeatCommandInfoSimtime(13));
+        assertEventTimes(skip, skip.path("eventData"), rangeRepeatedEvents(0, 13));
+        assertIndirectFirePlanTimes(skip, skip.path("indrectFirePlanData"), rangeRepeatedIndirectFirePlans(0, 13));
+        assertCommandInfoTimes(skip, skip.path("commandInfoData"), rangeRepeatedCommandInfos(0, 13));
+        assertSkipRenderData(skip, 13);
     }
 
     @Test
@@ -999,6 +1002,24 @@ class PlanDeduceIntegrationTest {
     }
 
     @Test
+    void shouldAcceptCheckpointWhenInitializing() throws Exception {
+        String sessionId = newSessionId();
+        TestWebSocketClient socket = connect(sessionId);
+
+        ResponseEntity<String> response = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&checkpoint=7&skip=0&sessionId=" + sessionId);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        JsonNode body = objectMapper.readTree(response.getBody());
+        assertEquals(DB_NAME, body.path("dbName").asText());
+        assertEquals(sessionId, body.path("sessionId").asText());
+        socket.assertNoMessage(Duration.ofMillis(350));
+
+        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
+        JsonNode init = socket.awaitMessage("INIT", DB_NAME, DEFAULT_TIMEOUT);
+        assertEquals(DB_NAME, init.path("dbName").asText());
+    }
+
+    @Test
     void shouldAcceptControlCommandsWithoutWebSocketConnection() {
         String sessionId = newSessionId();
 
@@ -1113,6 +1134,15 @@ class PlanDeduceIntegrationTest {
         }
     }
 
+    private void assertSkipRenderData(JsonNode messageNode, int expectedSecond) {
+        JsonNode skipRenderData = messageNode.path("skipRenderData");
+        assertTrue(skipRenderData.isObject());
+        assertEquals(messageNode.path("data"), skipRenderData.path("data"));
+        assertEventTimes(messageNode, skipRenderData.path("eventData"), repeatEventSimtime(expectedSecond));
+        assertIndirectFirePlanTimes(messageNode, skipRenderData.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(expectedSecond));
+        assertCommandInfoTimes(messageNode, skipRenderData.path("commandInfoData"), repeatCommandInfoSimtime(expectedSecond));
+    }
+
     private void assertRoomObjectFieldsPresent(JsonNode dataNode) {
         assertTrue(dataNode.isArray());
         assertTrue(dataNode.size() > 0);
@@ -1204,10 +1234,26 @@ class PlanDeduceIntegrationTest {
 
 
     private int[] rangeRepeated(int startInclusive, int endInclusive) {
-        int[] values = new int[(endInclusive - startInclusive + 1) * PIECES_PER_SECOND];
+        return rangeRepeated(startInclusive, endInclusive, PIECES_PER_SECOND);
+    }
+
+    private int[] rangeRepeatedEvents(int startInclusive, int endInclusive) {
+        return rangeRepeated(startInclusive, endInclusive, FIRE_EVENTS_PER_SECOND);
+    }
+
+    private int[] rangeRepeatedIndirectFirePlans(int startInclusive, int endInclusive) {
+        return rangeRepeated(startInclusive, endInclusive, INDIRECT_FIRE_PLANS_PER_SECOND);
+    }
+
+    private int[] rangeRepeatedCommandInfos(int startInclusive, int endInclusive) {
+        return rangeRepeated(startInclusive, endInclusive, COMMAND_INFOS_PER_SECOND);
+    }
+
+    private int[] rangeRepeated(int startInclusive, int endInclusive, int repeatCount) {
+        int[] values = new int[(endInclusive - startInclusive + 1) * repeatCount];
         int index = 0;
         for (int simtime = startInclusive; simtime <= endInclusive; simtime++) {
-            for (int i = 0; i < PIECES_PER_SECOND; i++) {
+            for (int i = 0; i < repeatCount; i++) {
                 values[index++] = simtime * 1000;
             }
         }

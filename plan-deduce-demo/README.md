@@ -8,7 +8,7 @@
 4. 支持开始和暂停。
 5. 支持可配置的全量保存间隔，默认 600 秒。
 6. 去掉 Redis，播放状态全部保存在 Java 内存中。
-7. 请求参数 `dbName` 表示数据库名，固定查询 `OBJ_ROOM_HIS` 表；表中同时包含棋子静态编成字段（如 `OBJ_CODE/OBJ_NAME/SIDE/OBJ_TYPE`）和每秒状态字段（如 `SIM_TIME/CURRENT_POS/NEXT_POS/CURRENT_SPEED/VISIBLE`）。
+7. 初始化时前端会传 `dbName` 和 `checkpoint`；后端内部会把动态数据源标识拼成 `wargame + dbName + "_" + checkpoint`，同时继续使用原始 `dbName` 作为房间标识回传前端和查询 `ROOM_INFO.id`。
 
 ## 运行方式
 
@@ -69,49 +69,61 @@ ws://localhost:8080/ws/planDeduce?sessionId=s1
 初始化播放：
 
 ```text
-http://localhost:8080/plan/sendPlanDeduce?dbName=plandeduce&skip=0&sessionId=s1
+http://localhost:8080/plan/sendPlanDeduce?dbName=1&checkpoint=1&skip=0&sessionId=s1
 ```
 
-跳转到第 6 秒，会取第 0 秒全量数据并叠加 1-6 秒增量数据：
+跳转到第 6 秒：
+
+- `data` 仍按 `RoomObjectHis` 的当前状态逻辑返回。
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 返回第 0-6 秒的全部数据。
+- `skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外三类数据只返回第 6 秒窗口内的数据。
 
 ```text
-http://localhost:8080/plan/skip?dbName=plandeduce&skip=6&sessionId=s1
+http://localhost:8080/plan/skip?dbName=1&skip=6&sessionId=s1
 ```
 
-跳转到第 11 秒，会取第 10 秒全量数据并叠加 11 秒增量数据：
+跳转到第 11 秒：
+
+- `data` 仍按 `RoomObjectHis` 的当前状态逻辑返回。
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 返回第 0-11 秒的全部数据。
+- `skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外三类数据只返回第 11 秒窗口内的数据。
 
 ```text
-http://localhost:8080/plan/skip?dbName=plandeduce&skip=11&sessionId=s1
+http://localhost:8080/plan/skip?dbName=1&skip=11&sessionId=s1
 ```
 
-跳转到第 20 秒，会取第 20 秒全量数据：
+跳转到第 20 秒：
+
+- `data` 仍按 `RoomObjectHis` 的当前状态逻辑返回。
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 返回第 0-20 秒的全部数据。
+- `skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外三类数据只返回第 20 秒窗口内的数据。
 
 ```text
-http://localhost:8080/plan/skip?dbName=plandeduce&skip=20&sessionId=s1
+http://localhost:8080/plan/skip?dbName=1&skip=20&sessionId=s1
 ```
 
 设置倍速：
 
 ```text
-http://localhost:8080/plan/speed?dbName=plandeduce&speed=2&sessionId=s1
+http://localhost:8080/plan/speed?dbName=1&speed=2&sessionId=s1
 ```
 
 暂停：
 
 ```text
-http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=0&sessionId=s1
+http://localhost:8080/plan/startOrStop?dbName=1&flag=0&sessionId=s1
 ```
 
 开始：
 
 ```text
-http://localhost:8080/plan/startOrStop?dbName=plandeduce&flag=1&sessionId=s1
+http://localhost:8080/plan/startOrStop?dbName=1&flag=1&sessionId=s1
 ```
 
 动态修改全量保存间隔为 20 秒：
 
 ```text
-http://localhost:8080/plan/fullSaveInterval?dbName=plandeduce&fullSaveIntervalSeconds=20&sessionId=s1
+http://localhost:8080/plan/fullSaveInterval?dbName=1&fullSaveIntervalSeconds=20&sessionId=s1
 ```
 
 ## H2 控制台
