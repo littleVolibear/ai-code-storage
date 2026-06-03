@@ -51,6 +51,7 @@ class PlanDeduceIntegrationTest {
     private static final int FIRE_EVENTS_PER_SECOND = 2;
     private static final int INDIRECT_FIRE_PLANS_PER_SECOND = 2;
     private static final int COMMAND_INFOS_PER_SECOND = 3;
+    private static final int CONTROL_POINTS_PER_SECOND = 2;
 
     @LocalServerPort
     private int port;
@@ -1130,6 +1131,17 @@ class PlanDeduceIntegrationTest {
         }
     }
 
+    private void assertControlPointTimes(JsonNode messageNode, JsonNode dataNode, int... expected) {
+        assertNotNull(dataNode);
+        assertEquals(expected.length, dataNode.size());
+        int expectedRealTime = messageNode.path("realTime").asInt();
+        for (int i = 0; i < expected.length; i++) {
+            int expectedMillisecond = expected[i];
+            assertEquals(expectedMillisecond, dataNode.get(i).path("simTime").asInt(), "simTime mismatch at index " + i);
+            assertEquals(expectedRealTime, dataNode.get(i).path("realTime").asInt(), "realTime mismatch at index " + i);
+        }
+    }
+
     private void assertSkipRenderData(JsonNode messageNode, int expectedSecond) {
         JsonNode skipRenderData = messageNode.path("skipRenderData");
         assertTrue(skipRenderData.isObject());
@@ -1137,6 +1149,7 @@ class PlanDeduceIntegrationTest {
         assertEventTimes(messageNode, skipRenderData.path("eventData"), repeatEventSimtime(expectedSecond));
         assertIndirectFirePlanTimes(messageNode, skipRenderData.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(expectedSecond));
         assertCommandInfoTimes(messageNode, skipRenderData.path("commandInfoData"), repeatCommandInfoSimtime(expectedSecond));
+        assertControlPointTimes(messageNode, skipRenderData.path("controlPointData"), repeatControlPointSimtime(expectedSecond));
     }
 
     private void assertRoomObjectFieldsPresent(JsonNode dataNode) {
@@ -1164,6 +1177,10 @@ class PlanDeduceIntegrationTest {
         assertTrue(message.path("incrementalData").isArray());
         assertEquals(0, message.path("fullData").size());
         assertEquals(0, message.path("incrementalData").size());
+        assertTrue(message.path("controlPointFullData").isArray());
+        assertTrue(message.path("controlPointIncrementalData").isArray());
+        assertEquals(0, message.path("controlPointFullData").size());
+        assertEquals(0, message.path("controlPointIncrementalData").size());
     }
 
     private void assertEmptyArray(JsonNode dataNode) {
@@ -1180,6 +1197,7 @@ class PlanDeduceIntegrationTest {
         businessTime = Math.max(businessTime, maxSimTime(message.path("eventData")));
         businessTime = Math.max(businessTime, maxSimTime(message.path("indrectFirePlanData")));
         businessTime = Math.max(businessTime, maxSimTime(message.path("commandInfoData")));
+        businessTime = Math.max(businessTime, maxSimTime(message.path("controlPointData")));
         businessTime = Math.max(businessTime, message.path("fullTime").asInt(0));
         return businessTime;
     }
@@ -1228,6 +1246,14 @@ class PlanDeduceIntegrationTest {
         return values;
     }
 
+    private int[] repeatControlPointSimtime(int simtime) {
+        int[] values = new int[CONTROL_POINTS_PER_SECOND];
+        for (int i = 0; i < CONTROL_POINTS_PER_SECOND; i++) {
+            values[i] = simtime * 1000;
+        }
+        return values;
+    }
+
 
     private int[] rangeRepeated(int startInclusive, int endInclusive) {
         return rangeRepeated(startInclusive, endInclusive, PIECES_PER_SECOND);
@@ -1243,6 +1269,10 @@ class PlanDeduceIntegrationTest {
 
     private int[] rangeRepeatedCommandInfos(int startInclusive, int endInclusive) {
         return rangeRepeated(startInclusive, endInclusive, COMMAND_INFOS_PER_SECOND);
+    }
+
+    private int[] rangeRepeatedControlPoints(int startInclusive, int endInclusive) {
+        return rangeRepeated(startInclusive, endInclusive, CONTROL_POINTS_PER_SECOND);
     }
 
     private int[] rangeRepeated(int startInclusive, int endInclusive, int repeatCount) {
@@ -1318,7 +1348,7 @@ class PlanDeduceIntegrationTest {
 
         private TestWebSocketClient(ObjectMapper objectMapper) {
             WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-            container.setDefaultMaxTextMessageBufferSize(1024 * 1024);
+            container.setDefaultMaxTextMessageBufferSize(4 * 1024 * 1024);
             this.client = new StandardWebSocketClient(container);
             this.objectMapper = objectMapper;
         }

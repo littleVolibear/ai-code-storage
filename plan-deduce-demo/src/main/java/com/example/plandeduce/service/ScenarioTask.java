@@ -2,6 +2,7 @@ package com.example.plandeduce.service;
 
 import com.example.plandeduce.config.PlanDeduceProperties;
 import com.example.plandeduce.model.CommandInfo;
+import com.example.plandeduce.model.ControlPoint;
 import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.IndrectFirePlan;
 import com.example.plandeduce.model.ProgressQueryContext;
@@ -226,6 +227,7 @@ public class ScenarioTask {
         List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(rangeQuery);
         List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(rangeQuery);
         List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(rangeQuery);
+        List<ControlPoint> controlPointIncrementalData = progressDataService.queryControlPointIncrementalData(rangeQuery);
         pushService.pushSnapshot(
                 type,
                 dbName,
@@ -244,7 +246,9 @@ public class ScenarioTask {
                 Collections.emptyList(),
                 indrectFirePlanIncrementalData,
                 Collections.emptyList(),
-                commandInfoIncrementalData
+                commandInfoIncrementalData,
+                Collections.emptyList(),
+                controlPointIncrementalData
         );
     }
 
@@ -257,6 +261,7 @@ public class ScenarioTask {
         List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(eventRangeQuery);
         List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(eventRangeQuery);
         List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(eventRangeQuery);
+        List<ControlPoint> controlPointIncrementalData = progressDataService.queryControlPointIncrementalData(eventRangeQuery);
         pushService.pushSnapshot(
                 "PLAY",
                 dbName,
@@ -275,7 +280,9 @@ public class ScenarioTask {
                 Collections.emptyList(),
                 indrectFirePlanIncrementalData,
                 Collections.emptyList(),
-                commandInfoIncrementalData
+                commandInfoIncrementalData,
+                Collections.emptyList(),
+                controlPointIncrementalData
         );
     }
 
@@ -292,10 +299,12 @@ public class ScenarioTask {
         List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(replayRangeQuery);
         List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(replayRangeQuery);
         List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(replayRangeQuery);
+        List<ControlPoint> controlPointIncrementalData = progressDataService.queryControlPointIncrementalData(replayRangeQuery);
         SkipRenderData skipRenderData = new SkipRenderData();
         skipRenderData.setEventData(progressDataService.queryEventIncrementalData(renderRangeQuery));
         skipRenderData.setIndrectFirePlanData(progressDataService.queryIndrectFirePlanIncrementalData(renderRangeQuery));
         skipRenderData.setCommandInfoData(progressDataService.queryCommandInfoIncrementalData(renderRangeQuery));
+        skipRenderData.setControlPointData(progressDataService.queryControlPointIncrementalData(renderRangeQuery));
         pushService.pushSnapshot(
                 "SKIP",
                 dbName,
@@ -315,6 +324,8 @@ public class ScenarioTask {
                 indrectFirePlanIncrementalData,
                 Collections.emptyList(),
                 commandInfoIncrementalData,
+                Collections.emptyList(),
+                controlPointIncrementalData,
                 skipRenderData
         );
     }

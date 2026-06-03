@@ -1,6 +1,7 @@
 package com.example.plandeduce.websocket;
 
 import com.example.plandeduce.model.CommandInfo;
+import com.example.plandeduce.model.ControlPoint;
 import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.IndrectFirePlan;
 import com.example.plandeduce.model.RoomObjectHis;
@@ -45,7 +46,9 @@ public class PlanDeducePush {
                              List<IndrectFirePlan> indrectFirePlanFullData,
                              List<IndrectFirePlan> indrectFirePlanIncrementalData,
                              List<CommandInfo> commandInfoFullData,
-                             List<CommandInfo> commandInfoIncrementalData) {
+                             List<CommandInfo> commandInfoIncrementalData,
+                             List<ControlPoint> controlPointFullData,
+                             List<ControlPoint> controlPointIncrementalData) {
         pushSnapshot(
                 type,
                 dbName,
@@ -65,6 +68,8 @@ public class PlanDeducePush {
                 indrectFirePlanIncrementalData,
                 commandInfoFullData,
                 commandInfoIncrementalData,
+                controlPointFullData,
+                controlPointIncrementalData,
                 null
         );
     }
@@ -91,6 +96,8 @@ public class PlanDeducePush {
                              List<IndrectFirePlan> indrectFirePlanIncrementalData,
                              List<CommandInfo> commandInfoFullData,
                              List<CommandInfo> commandInfoIncrementalData,
+                             List<ControlPoint> controlPointFullData,
+                             List<ControlPoint> controlPointIncrementalData,
                              SkipRenderData skipRenderData) {
         fullData = safeRoomObjectList(fullData);
         incrementalData = safeRoomObjectList(incrementalData);
@@ -100,6 +107,8 @@ public class PlanDeducePush {
         indrectFirePlanIncrementalData = safeIndrectFirePlanList(indrectFirePlanIncrementalData);
         commandInfoFullData = safeCommandInfoList(commandInfoFullData);
         commandInfoIncrementalData = safeCommandInfoList(commandInfoIncrementalData);
+        controlPointFullData = safeControlPointList(controlPointFullData);
+        controlPointIncrementalData = safeControlPointList(controlPointIncrementalData);
         skipRenderData = hydrateSkipRenderData(type, skipRenderData, realTime);
         hydrateRoomObjectRealTime(fullData, realTime);
         hydrateRoomObjectRealTime(incrementalData, realTime);
@@ -109,10 +118,13 @@ public class PlanDeducePush {
         hydrateIndrectFirePlanRealTime(indrectFirePlanIncrementalData, realTime);
         hydrateCommandInfoRealTime(commandInfoFullData, realTime);
         hydrateCommandInfoRealTime(commandInfoIncrementalData, realTime);
+        hydrateControlPointRealTime(controlPointFullData, realTime);
+        hydrateControlPointRealTime(controlPointIncrementalData, realTime);
         List<RoomObjectHis> mergedData = mergeRoomObjectData(fullData, incrementalData);
         List<FireJudgeResult> mergedEventData = mergeEventData(type, eventFullData, eventIncrementalData);
         List<IndrectFirePlan> mergedIndrectFirePlanData = mergeIndrectFirePlanData(type, indrectFirePlanFullData, indrectFirePlanIncrementalData);
         List<CommandInfo> mergedCommandInfoData = mergeCommandInfoData(type, commandInfoFullData, commandInfoIncrementalData);
+        List<ControlPoint> mergedControlPointData = mergeControlPointData(type, controlPointFullData, controlPointIncrementalData);
         if (skipRenderData != null) {
             skipRenderData.setData(mergedData);
         }
@@ -130,6 +142,9 @@ public class PlanDeducePush {
         message.setCommandInfoData(mergedCommandInfoData);
         message.setCommandInfoFullData(Collections.emptyList());
         message.setCommandInfoIncrementalData(Collections.emptyList());
+        message.setControlPointData(mergedControlPointData);
+        message.setControlPointFullData(Collections.emptyList());
+        message.setControlPointIncrementalData(Collections.emptyList());
         message.setSkipRenderData(skipRenderData);
         message.setMessage(buildSnapshotMessage(type, realTime, deduceTime, fullTime, incrementalFromExclusive));
         webSocketHandler.sendToSession(sessionId, message);
@@ -238,6 +253,15 @@ public class PlanDeducePush {
         }
     }
 
+    /** 设置控制点数据的真实时间。 */
+    private void hydrateControlPointRealTime(List<ControlPoint> data, int realTime) {
+        for (ControlPoint row : data) {
+            if (row != null) {
+                row.setRealTime(realTime);
+            }
+        }
+    }
+
     /** 规整对象数据列表。 */
     private List<RoomObjectHis> safeRoomObjectList(List<RoomObjectHis> data) {
         return data == null ? Collections.emptyList() : data;
@@ -258,6 +282,11 @@ public class PlanDeducePush {
         return data == null ? Collections.emptyList() : data;
     }
 
+    /** 规整控制点数据列表。 */
+    private List<ControlPoint> safeControlPointList(List<ControlPoint> data) {
+        return data == null ? Collections.emptyList() : data;
+    }
+
     /** 规整并设置跳点渲染数据的真实时间。 */
     private SkipRenderData hydrateSkipRenderData(String type, SkipRenderData data, int realTime) {
         if (!"SKIP".equals(type) || data == null) {
@@ -267,10 +296,12 @@ public class PlanDeducePush {
         data.setEventData(safeEventDataList(data.getEventData()));
         data.setIndrectFirePlanData(safeIndrectFirePlanList(data.getIndrectFirePlanData()));
         data.setCommandInfoData(safeCommandInfoList(data.getCommandInfoData()));
+        data.setControlPointData(safeControlPointList(data.getControlPointData()));
         hydrateRoomObjectRealTime(data.getData(), realTime);
         hydrateEventRealTime(data.getEventData(), realTime);
         hydrateIndrectFirePlanRealTime(data.getIndrectFirePlanData(), realTime);
         hydrateCommandInfoRealTime(data.getCommandInfoData(), realTime);
+        hydrateControlPointRealTime(data.getControlPointData(), realTime);
         return data;
     }
 
@@ -338,5 +369,27 @@ public class PlanDeducePush {
             }
         }
         return new ArrayList<>(rowsByObjId.values());
+    }
+
+    /** 合并控制点数据；SKIP 时保留 0 到跳点秒的完整控制点列表。 */
+    private List<ControlPoint> mergeControlPointData(String type, List<ControlPoint> fullData, List<ControlPoint> incrementalData) {
+        if ("SKIP".equals(type)) {
+            List<ControlPoint> replayData = new ArrayList<>(fullData.size() + incrementalData.size());
+            replayData.addAll(fullData);
+            replayData.addAll(incrementalData);
+            return replayData;
+        }
+        Map<Integer, ControlPoint> rowsById = new LinkedHashMap<>();
+        for (ControlPoint row : fullData) {
+            if (row != null && row.getId() != null) {
+                rowsById.put(row.getId(), row);
+            }
+        }
+        for (ControlPoint row : incrementalData) {
+            if (row != null && row.getId() != null) {
+                rowsById.put(row.getId(), row);
+            }
+        }
+        return new ArrayList<>(rowsById.values());
     }
 }

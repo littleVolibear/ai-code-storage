@@ -5,6 +5,7 @@ import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.model.ProgressTimeline;
 import com.example.plandeduce.model.CommandInfo;
+import com.example.plandeduce.model.ControlPoint;
 import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.IndrectFirePlan;
 import com.example.plandeduce.model.RoomObjectHis;
@@ -54,4 +55,13 @@ public interface ProgressDataService {
 
     /** 查询指令信息快照补丁。 */
     List<CommandInfo> queryCommandInfoSnapshotIncrementalData(ProgressRangeQuery rangeQuery);
+
+    /** 查询控制点全量快照。 */
+    List<ControlPoint> queryControlPointFullData(ProgressSnapshotQuery snapshotQuery);
+
+    /** 查询控制点增量数据。 */
+    List<ControlPoint> queryControlPointIncrementalData(ProgressRangeQuery rangeQuery);
+
+    /** 查询控制点快照补丁。 */
+    List<ControlPoint> queryControlPointSnapshotIncrementalData(ProgressRangeQuery rangeQuery);
 }

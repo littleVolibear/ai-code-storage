@@ -1,6 +1,7 @@
 package com.example.plandeduce.service.impl;
 
 import com.example.plandeduce.model.CommandInfo;
+import com.example.plandeduce.model.ControlPoint;
 import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.IndrectFirePlan;
 import com.example.plandeduce.model.ProgressQueryContext;
@@ -9,6 +10,7 @@ import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.model.ProgressTimeline;
 import com.example.plandeduce.model.RoomObjectHis;
 import com.example.plandeduce.service.CommandInfoDataService;
+import com.example.plandeduce.service.ControlPointDataService;
 import com.example.plandeduce.service.FireJudgeResultDataService;
 import com.example.plandeduce.service.IndrectFirePlanDataService;
 import com.example.plandeduce.service.ProgressDataService;
@@ -26,18 +28,21 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     private final FireJudgeResultDataService fireJudgeResultDataService;
     private final IndrectFirePlanDataService indrectFirePlanDataService;
     private final CommandInfoDataService commandInfoDataService;
+    private final ControlPointDataService controlPointDataService;
 
     /** 注入依赖。 */
     public ProgressDataServiceImpl(RoomInfoService roomInfoService,
                                    RoomObjectHisDataService roomObjectHisDataService,
                                    FireJudgeResultDataService fireJudgeResultDataService,
                                    IndrectFirePlanDataService indrectFirePlanDataService,
-                                   CommandInfoDataService commandInfoDataService) {
+                                   CommandInfoDataService commandInfoDataService,
+                                   ControlPointDataService controlPointDataService) {
         this.roomInfoService = roomInfoService;
         this.roomObjectHisDataService = roomObjectHisDataService;
         this.fireJudgeResultDataService = fireJudgeResultDataService;
         this.indrectFirePlanDataService = indrectFirePlanDataService;
         this.commandInfoDataService = commandInfoDataService;
+        this.controlPointDataService = controlPointDataService;
     }
 
     /** 查询进度条时间范围。 */
@@ -53,6 +58,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         fireJudgeResultDataService.preloadSnapshots(snapshotQuery);
         indrectFirePlanDataService.preloadSnapshots(snapshotQuery);
         commandInfoDataService.preloadSnapshots(snapshotQuery);
+        controlPointDataService.preloadSnapshots(snapshotQuery);
     }
 
     /** 转发对象全量快照查询。 */
@@ -125,6 +131,24 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     @Override
     public List<CommandInfo> queryCommandInfoSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
         return commandInfoDataService.querySnapshotIncrementalData(rangeQuery);
+    }
+
+    /** 转发控制点全量快照查询。 */
+    @Override
+    public List<ControlPoint> queryControlPointFullData(ProgressSnapshotQuery snapshotQuery) {
+        return controlPointDataService.queryFullData(snapshotQuery);
+    }
+
+    /** 转发控制点增量数据查询。 */
+    @Override
+    public List<ControlPoint> queryControlPointIncrementalData(ProgressRangeQuery rangeQuery) {
+        return controlPointDataService.queryIncrementalData(rangeQuery);
+    }
+
+    /** 转发控制点快照补丁查询。 */
+    @Override
+    public List<ControlPoint> queryControlPointSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
+        return controlPointDataService.querySnapshotIncrementalData(rangeQuery);
     }
 
 }
