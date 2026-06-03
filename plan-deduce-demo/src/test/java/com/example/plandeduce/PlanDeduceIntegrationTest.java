@@ -1271,10 +1271,6 @@ class PlanDeduceIntegrationTest {
         return rangeRepeated(startInclusive, endInclusive, COMMAND_INFOS_PER_SECOND);
     }
 
-    private int[] rangeRepeatedControlPoints(int startInclusive, int endInclusive) {
-        return rangeRepeated(startInclusive, endInclusive, CONTROL_POINTS_PER_SECOND);
-    }
-
     private int[] rangeRepeated(int startInclusive, int endInclusive, int repeatCount) {
         int[] values = new int[(endInclusive - startInclusive + 1) * repeatCount];
         int index = 0;

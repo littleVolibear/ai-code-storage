@@ -29,39 +29,15 @@ public interface ProgressDataService {
     /** 查询对象快照补丁。 */
     List<RoomObjectHis> querySnapshotIncrementalData(ProgressRangeQuery rangeQuery);
 
-    /** 查询事件全量快照。 */
-    List<FireJudgeResult> queryEventFullData(ProgressSnapshotQuery snapshotQuery);
-
     /** 查询事件增量数据。 */
     List<FireJudgeResult> queryEventIncrementalData(ProgressRangeQuery rangeQuery);
-
-    /** 查询事件快照补丁。 */
-    List<FireJudgeResult> queryEventSnapshotIncrementalData(ProgressRangeQuery rangeQuery);
-
-    /** 查询间瞄计划全量快照。 */
-    List<IndrectFirePlan> queryIndrectFirePlanFullData(ProgressSnapshotQuery snapshotQuery);
 
     /** 查询间瞄计划增量数据。 */
     List<IndrectFirePlan> queryIndrectFirePlanIncrementalData(ProgressRangeQuery rangeQuery);
 
-    /** 查询间瞄计划快照补丁。 */
-    List<IndrectFirePlan> queryIndrectFirePlanSnapshotIncrementalData(ProgressRangeQuery rangeQuery);
-
-    /** 查询指令信息全量快照。 */
-    List<CommandInfo> queryCommandInfoFullData(ProgressSnapshotQuery snapshotQuery);
-
     /** 查询指令信息增量数据。 */
     List<CommandInfo> queryCommandInfoIncrementalData(ProgressRangeQuery rangeQuery);
 
-    /** 查询指令信息快照补丁。 */
-    List<CommandInfo> queryCommandInfoSnapshotIncrementalData(ProgressRangeQuery rangeQuery);
-
-    /** 查询控制点全量快照。 */
-    List<ControlPoint> queryControlPointFullData(ProgressSnapshotQuery snapshotQuery);
-
     /** 查询控制点增量数据。 */
     List<ControlPoint> queryControlPointIncrementalData(ProgressRangeQuery rangeQuery);
-
-    /** 查询控制点快照补丁。 */
-    List<ControlPoint> queryControlPointSnapshotIncrementalData(ProgressRangeQuery rangeQuery);
 }

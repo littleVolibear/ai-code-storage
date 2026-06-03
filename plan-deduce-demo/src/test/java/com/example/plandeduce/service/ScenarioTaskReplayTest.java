@@ -111,22 +111,7 @@ class ScenarioTaskReplayTest {
         }
 
         @Override
-        public List<FireJudgeResult> queryEventFullData(ProgressSnapshotQuery snapshotQuery) {
-            return Collections.emptyList();
-        }
-
-        @Override
         public List<FireJudgeResult> queryEventIncrementalData(ProgressRangeQuery rangeQuery) {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public List<FireJudgeResult> queryEventSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public List<IndrectFirePlan> queryIndrectFirePlanFullData(ProgressSnapshotQuery snapshotQuery) {
             return Collections.emptyList();
         }
 
@@ -136,37 +121,12 @@ class ScenarioTaskReplayTest {
         }
 
         @Override
-        public List<IndrectFirePlan> queryIndrectFirePlanSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public List<CommandInfo> queryCommandInfoFullData(ProgressSnapshotQuery snapshotQuery) {
-            return Collections.emptyList();
-        }
-
-        @Override
         public List<CommandInfo> queryCommandInfoIncrementalData(ProgressRangeQuery rangeQuery) {
             return Collections.emptyList();
         }
 
         @Override
-        public List<CommandInfo> queryCommandInfoSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public List<ControlPoint> queryControlPointFullData(ProgressSnapshotQuery snapshotQuery) {
-            return Collections.emptyList();
-        }
-
-        @Override
         public List<ControlPoint> queryControlPointIncrementalData(ProgressRangeQuery rangeQuery) {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public List<ControlPoint> queryControlPointSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
             return Collections.emptyList();
         }
 

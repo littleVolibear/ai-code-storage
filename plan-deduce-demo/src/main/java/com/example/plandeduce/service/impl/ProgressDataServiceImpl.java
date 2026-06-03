@@ -55,10 +55,6 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     @Override
     public void preloadFullSnapshots(ProgressSnapshotQuery snapshotQuery) {
         roomObjectHisDataService.preloadSnapshots(snapshotQuery);
-        fireJudgeResultDataService.preloadSnapshots(snapshotQuery);
-        indrectFirePlanDataService.preloadSnapshots(snapshotQuery);
-        commandInfoDataService.preloadSnapshots(snapshotQuery);
-        controlPointDataService.preloadSnapshots(snapshotQuery);
     }
 
     /** 转发对象全量快照查询。 */
@@ -79,28 +75,10 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return roomObjectHisDataService.querySnapshotIncrementalData(rangeQuery);
     }
 
-    /** 转发射击裁决全量快照查询。 */
-    @Override
-    public List<FireJudgeResult> queryEventFullData(ProgressSnapshotQuery snapshotQuery) {
-        return fireJudgeResultDataService.queryFullData(snapshotQuery);
-    }
-
     /** 转发射击裁决增量数据查询。 */
     @Override
     public List<FireJudgeResult> queryEventIncrementalData(ProgressRangeQuery rangeQuery) {
         return fireJudgeResultDataService.queryIncrementalData(rangeQuery);
-    }
-
-    /** 转发射击裁决快照补丁查询。 */
-    @Override
-    public List<FireJudgeResult> queryEventSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-        return fireJudgeResultDataService.querySnapshotIncrementalData(rangeQuery);
-    }
-
-    /** 转发间瞄计划全量快照查询。 */
-    @Override
-    public List<IndrectFirePlan> queryIndrectFirePlanFullData(ProgressSnapshotQuery snapshotQuery) {
-        return indrectFirePlanDataService.queryFullData(snapshotQuery);
     }
 
     /** 转发间瞄计划增量数据查询。 */
@@ -109,46 +87,16 @@ public class ProgressDataServiceImpl implements ProgressDataService {
         return indrectFirePlanDataService.queryIncrementalData(rangeQuery);
     }
 
-    /** 转发间瞄计划快照补丁查询。 */
-    @Override
-    public List<IndrectFirePlan> queryIndrectFirePlanSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-        return indrectFirePlanDataService.querySnapshotIncrementalData(rangeQuery);
-    }
-
-    /** 转发指令信息全量快照查询。 */
-    @Override
-    public List<CommandInfo> queryCommandInfoFullData(ProgressSnapshotQuery snapshotQuery) {
-        return commandInfoDataService.queryFullData(snapshotQuery);
-    }
-
     /** 转发指令信息增量数据查询。 */
     @Override
     public List<CommandInfo> queryCommandInfoIncrementalData(ProgressRangeQuery rangeQuery) {
         return commandInfoDataService.queryIncrementalData(rangeQuery);
     }
 
-    /** 转发指令信息快照补丁查询。 */
-    @Override
-    public List<CommandInfo> queryCommandInfoSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-        return commandInfoDataService.querySnapshotIncrementalData(rangeQuery);
-    }
-
-    /** 转发控制点全量快照查询。 */
-    @Override
-    public List<ControlPoint> queryControlPointFullData(ProgressSnapshotQuery snapshotQuery) {
-        return controlPointDataService.queryFullData(snapshotQuery);
-    }
-
     /** 转发控制点增量数据查询。 */
     @Override
     public List<ControlPoint> queryControlPointIncrementalData(ProgressRangeQuery rangeQuery) {
         return controlPointDataService.queryIncrementalData(rangeQuery);
-    }
-
-    /** 转发控制点快照补丁查询。 */
-    @Override
-    public List<ControlPoint> queryControlPointSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
-        return controlPointDataService.querySnapshotIncrementalData(rangeQuery);
     }
 
 }
