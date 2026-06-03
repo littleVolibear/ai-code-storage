@@ -34,7 +34,7 @@ public class ScenarioTaskManager {
 
     /** 获取或创建任务。 */
     public ScenarioTask getOrCreate(String dbName, String sessionId) {
-        return getOrCreate(dbName, dbName, sessionId);
+        throw new IllegalArgumentException("创建任务必须指定 dataSourceKey");
     }
 
     /** 获取或创建任务并更新数据源标识。 */

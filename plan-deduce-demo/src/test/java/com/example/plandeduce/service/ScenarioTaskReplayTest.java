@@ -33,7 +33,7 @@ class ScenarioTaskReplayTest {
 
         ScenarioTaskManager taskManager = new ScenarioTaskManager(new FakeProgressDataService(), push, properties);
         try {
-            ScenarioTask task = taskManager.getOrCreate("1", "session-1");
+            ScenarioTask task = taskManager.getOrCreate("1", "wargame1_1", "session-1");
             task.initialize(5, null);
 
             task.startOrStop(1);

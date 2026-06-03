@@ -1,5 +1,6 @@
 package com.example.plandeduce.controller;
 
+import com.example.plandeduce.config.DataSourceConstants;
 import com.example.plandeduce.service.ScenarioTask;
 import com.example.plandeduce.service.ScenarioTaskManager;
 import com.example.plandeduce.service.ProgressDataService;
@@ -56,7 +57,7 @@ public class PlanDeduceController {
     public void skip(@NotNull(message = "库名不能为空") @RequestParam String dbName,
                      @NotNull(message = "跳转时间不能为空") @RequestParam Integer skip,
                      @RequestParam(defaultValue = "default") String sessionId) {
-        ScenarioTask task = taskManager.getOrCreate(dbName, sessionId);
+        ScenarioTask task = getRequiredTask(dbName, sessionId);
         task.skipAndResume(skip);
     }
 
@@ -70,7 +71,7 @@ public class PlanDeduceController {
                       @NotNull(message = "倍速不能为空") @RequestParam Integer speed,
                       @RequestParam(defaultValue = "default") String sessionId,
                       @RequestParam(required = false) String uuid) {
-        ScenarioTask task = taskManager.getOrCreate(dbName, sessionId);
+        ScenarioTask task = getRequiredTask(dbName, sessionId);
         task.setSpeedAndResume(speed);
     }
 
@@ -82,7 +83,7 @@ public class PlanDeduceController {
     public void startOrStop(@NotNull(message = "库名不能为空") @RequestParam String dbName,
                             @NotNull(message = "开始暂停标识不能为空") @RequestParam Integer flag,
                             @RequestParam(defaultValue = "default") String sessionId) {
-        ScenarioTask task = taskManager.getOrCreate(dbName, sessionId);
+        ScenarioTask task = getRequiredTask(dbName, sessionId);
         task.startOrStop(flag);
     }
 
@@ -94,7 +95,7 @@ public class PlanDeduceController {
     public void fullSaveInterval(@NotNull(message = "库名不能为空") @RequestParam String dbName,
                                  @NotNull(message = "全量保存间隔不能为空") @RequestParam Integer fullSaveIntervalSeconds,
                                  @RequestParam(defaultValue = "default") String sessionId) {
-        ScenarioTask task = taskManager.getOrCreate(dbName, sessionId);
+        ScenarioTask task = getRequiredTask(dbName, sessionId);
         task.updateFullSaveInterval(fullSaveIntervalSeconds);
     }
 
@@ -123,8 +124,17 @@ public class PlanDeduceController {
     /** 生成初始化使用的数据源标识。 */
     private String buildDataSourceKey(String dbName, Integer checkpoint) {
         if (checkpoint == null) {
-            return dbName;
+            throw new IllegalArgumentException("checkpoint 不能为空");
         }
-        return "wargame" + dbName + "_" + checkpoint;
+        return DataSourceConstants.DYNAMIC_DATASOURCE_PREFIX + dbName + "_" + checkpoint;
+    }
+
+    /** 获取已初始化任务。 */
+    private ScenarioTask getRequiredTask(String dbName, String sessionId) {
+        ScenarioTask task = taskManager.get(dbName, sessionId);
+        if (task == null) {
+            throw new IllegalArgumentException("任务未初始化，请先调用 sendPlanDeduce");
+        }
+        return task;
     }
 }

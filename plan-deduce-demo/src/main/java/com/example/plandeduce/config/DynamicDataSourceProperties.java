@@ -11,7 +11,7 @@ import java.util.Map;
 @Configuration
 @ConfigurationProperties(prefix = "plan.deduce.dynamic-datasource")
 public class DynamicDataSourceProperties {
-    private String defaultKey = "default";
+    private String defaultKey = DataSourceConstants.FIXED_ROOM_INFO_DATASOURCE;
     private Map<String, DataSourceItem> datasources = new LinkedHashMap<String, DataSourceItem>();
 
     @Data

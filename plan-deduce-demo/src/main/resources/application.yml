@@ -22,6 +22,13 @@ plan:
     default-speed: 1
     tick-interval-ms: 1000
     max-worker-threads: 8
+    dynamic-datasource:
+      datasources:
+        wargame1_1:
+          driver-class-name: org.h2.Driver
+          url: jdbc:h2:mem:plandeduce;MODE=MySQL;DB_CLOSE_DELAY=-1
+          username: sa
+          password:
 
 mybatis-plus:
   configuration:

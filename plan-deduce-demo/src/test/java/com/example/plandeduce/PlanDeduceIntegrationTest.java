@@ -285,6 +285,7 @@ class PlanDeduceIntegrationTest {
         String sessionId = newSessionId();
         TestWebSocketClient socket = connect(sessionId);
 
+        initializeOnly(socket, DB_NAME, 0, sessionId);
         call("/plan/speed?dbName=" + DB_NAME + "&speed=3&sessionId=" + sessionId);
         JsonNode speed = socket.awaitMessageOfType("SPEED", DEFAULT_TIMEOUT);
         assertEquals(0, speed.path("realTime").asInt());
@@ -966,8 +967,10 @@ class PlanDeduceIntegrationTest {
     void shouldRejectInvalidFullSaveInterval() {
         String sessionId = newSessionId();
 
+        ResponseEntity<String> initResponse = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&checkpoint=1&skip=0&sessionId=" + sessionId);
         ResponseEntity<String> response = call("/plan/fullSaveInterval?dbName=" + DB_NAME + "&fullSaveIntervalSeconds=0&sessionId=" + sessionId);
 
+        assertEquals(HttpStatus.OK, initResponse.getStatusCode());
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertTrue(response.getBody() != null && response.getBody().contains("全量保存间隔必须大于 0 秒"));
     }
@@ -990,7 +993,7 @@ class PlanDeduceIntegrationTest {
         String sessionId = newSessionId();
         TestWebSocketClient socket = connect(sessionId);
 
-        ResponseEntity<String> response = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&skip=0&sessionId=" + sessionId);
+        ResponseEntity<String> response = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&checkpoint=1&skip=0&sessionId=" + sessionId);
         assertEquals(HttpStatus.OK, response.getStatusCode());
 
         JsonNode body = objectMapper.readTree(response.getBody());
@@ -1002,28 +1005,21 @@ class PlanDeduceIntegrationTest {
     }
 
     @Test
-    void shouldAcceptCheckpointWhenInitializing() throws Exception {
+    void shouldRejectUnknownCheckpointWhenInitializing() throws Exception {
         String sessionId = newSessionId();
         TestWebSocketClient socket = connect(sessionId);
 
         ResponseEntity<String> response = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&checkpoint=7&skip=0&sessionId=" + sessionId);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-
-        JsonNode body = objectMapper.readTree(response.getBody());
-        assertEquals(DB_NAME, body.path("dbName").asText());
-        assertEquals(sessionId, body.path("sessionId").asText());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody() != null && response.getBody().contains("Cannot determine target DataSource"));
         socket.assertNoMessage(Duration.ofMillis(350));
-
-        call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
-        JsonNode init = socket.awaitMessage("INIT", DB_NAME, DEFAULT_TIMEOUT);
-        assertEquals(DB_NAME, init.path("dbName").asText());
     }
 
     @Test
     void shouldAcceptControlCommandsWithoutWebSocketConnection() {
         String sessionId = newSessionId();
 
-        ResponseEntity<String> initResponse = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&skip=0&sessionId=" + sessionId);
+        ResponseEntity<String> initResponse = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&checkpoint=1&skip=0&sessionId=" + sessionId);
         ResponseEntity<String> speedResponse = call("/plan/speed?dbName=" + DB_NAME + "&speed=3&sessionId=" + sessionId);
         ResponseEntity<String> pauseResponse = call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=0&sessionId=" + sessionId);
 
@@ -1037,13 +1033,13 @@ class PlanDeduceIntegrationTest {
         String sessionId = newSessionId();
         TestWebSocketClient socket = connect(sessionId);
 
-        ResponseEntity<String> firstInit = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&skip=0&sessionId=" + sessionId);
+        ResponseEntity<String> firstInit = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&checkpoint=1&skip=0&sessionId=" + sessionId);
         assertEquals(HttpStatus.OK, firstInit.getStatusCode());
         socket.assertNoMessage(Duration.ofMillis(350));
         call("/plan/startOrStop?dbName=" + DB_NAME + "&flag=1&sessionId=" + sessionId);
         socket.awaitMessageOfType("INIT", DEFAULT_TIMEOUT);
 
-        ResponseEntity<String> secondInit = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&skip=5&sessionId=" + sessionId);
+        ResponseEntity<String> secondInit = call("/plan/sendPlanDeduce?dbName=" + DB_NAME + "&checkpoint=1&skip=5&sessionId=" + sessionId);
         assertEquals(HttpStatus.BAD_REQUEST, secondInit.getStatusCode());
         assertTrue(secondInit.getBody() != null && secondInit.getBody().contains("当前任务正在执行"));
     }
@@ -1055,7 +1051,7 @@ class PlanDeduceIntegrationTest {
     }
 
     private void initializeOnly(TestWebSocketClient socket, String dbName, int skip, String sessionId) throws Exception {
-        ResponseEntity<String> response = call("/plan/sendPlanDeduce?dbName=" + dbName + "&skip=" + skip + "&sessionId=" + sessionId);
+        ResponseEntity<String> response = call("/plan/sendPlanDeduce?dbName=" + dbName + "&checkpoint=1&skip=" + skip + "&sessionId=" + sessionId);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         socket.assertNoMessage(Duration.ofMillis(350));
     }

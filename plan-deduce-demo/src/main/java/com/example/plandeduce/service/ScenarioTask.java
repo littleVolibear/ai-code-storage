@@ -51,7 +51,7 @@ public class ScenarioTask {
                         PlanDeduceProperties properties,
                         ScenarioTaskManager taskManager) {
         this.dbName = dbName;
-        this.dataSourceKey.set(dataSourceKey);
+        this.dataSourceKey.set(requireDataSourceKey(dataSourceKey));
         this.sessionId = sessionId;
         this.progressDataService = progressDataService;
         this.pushService = pushService;
@@ -63,7 +63,7 @@ public class ScenarioTask {
 
     /** 更新任务使用的数据源标识。 */
     public void updateDataSourceKey(String newDataSourceKey) {
-        dataSourceKey.set(newDataSourceKey == null || newDataSourceKey.trim().isEmpty() ? dbName : newDataSourceKey);
+        dataSourceKey.set(requireDataSourceKey(newDataSourceKey));
     }
 
     /** 初始化任务。 */
@@ -390,7 +390,14 @@ public class ScenarioTask {
     /** 读取当前数据源标识。 */
     private String getDataSourceKey() {
         String currentDataSourceKey = dataSourceKey.get();
-        return currentDataSourceKey == null || currentDataSourceKey.trim().isEmpty() ? dbName : currentDataSourceKey;
+        return requireDataSourceKey(currentDataSourceKey);
     }
 
+    /** 校验数据源标识。 */
+    private String requireDataSourceKey(String currentDataSourceKey) {
+        if (currentDataSourceKey == null || currentDataSourceKey.trim().isEmpty()) {
+            throw new IllegalArgumentException("dataSourceKey 不能为空");
+        }
+        return currentDataSourceKey;
+    }
 }

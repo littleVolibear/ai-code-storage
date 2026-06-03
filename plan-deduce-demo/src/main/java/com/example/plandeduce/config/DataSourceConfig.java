@@ -24,7 +24,7 @@ public class DataSourceConfig {
         );
 
         Map<Object, Object> targetDataSources = new LinkedHashMap<Object, Object>();
-        targetDataSources.put(dynamicDataSourceProperties.getDefaultKey(), defaultDataSource);
+        targetDataSources.put(DataSourceConstants.FIXED_ROOM_INFO_DATASOURCE, defaultDataSource);
 
         for (Map.Entry<String, DynamicDataSourceProperties.DataSourceItem> entry : dynamicDataSourceProperties.getDatasources().entrySet()) {
             DynamicDataSourceProperties.DataSourceItem item = entry.getValue();
@@ -39,6 +39,7 @@ public class DataSourceConfig {
         DynamicRoutingDataSource routingDataSource = new DynamicRoutingDataSource();
         routingDataSource.setDefaultTargetDataSource(defaultDataSource);
         routingDataSource.setTargetDataSources(targetDataSources);
+        routingDataSource.setLenientFallback(false);
         routingDataSource.afterPropertiesSet();
         return routingDataSource;
     }

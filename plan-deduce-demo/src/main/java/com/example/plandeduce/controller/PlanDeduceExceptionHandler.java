@@ -19,9 +19,9 @@ public class PlanDeduceExceptionHandler {
      * 处理业务参数错误。
      * 当前主要覆盖非法 fullSaveInterval、非法 dbName 等场景，对外统一返回 400。
      */
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, Object> handleIllegalArgument(IllegalArgumentException exception) {
+    public Map<String, Object> handleIllegalArgument(RuntimeException exception) {
         Map<String, Object> result = new HashMap<>();
         result.put("success", false);
         result.put("message", exception.getMessage());

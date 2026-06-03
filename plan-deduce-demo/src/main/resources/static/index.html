@@ -13,7 +13,7 @@
 <h2>推演进度条 Demo</h2>
 <p>先点“连接 WebSocket”，再点“初始化播放”。</p>
 <button onclick="connect()">连接 WebSocket</button>
-<button onclick="call('/plan/sendPlanDeduce?dbName=1&skip=0&sessionId=s1')">初始化播放</button>
+<button onclick="call('/plan/sendPlanDeduce?dbName=1&checkpoint=1&skip=0&sessionId=s1')">初始化播放</button>
 <button onclick="call('/plan/skip?dbName=1&skip=6&sessionId=s1')">跳转 6 秒</button>
 <button onclick="call('/plan/skip?dbName=1&skip=11&sessionId=s1')">跳转 11 秒</button>
 <button onclick="call('/plan/skip?dbName=1&skip=20&sessionId=s1')">跳转 20 秒</button>

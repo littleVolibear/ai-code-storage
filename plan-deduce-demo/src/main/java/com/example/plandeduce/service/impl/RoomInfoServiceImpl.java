@@ -2,6 +2,7 @@ package com.example.plandeduce.service.impl;
 
 import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.date.DateUtil;
+import com.example.plandeduce.config.DataSourceConstants;
 import com.example.plandeduce.config.DynamicDataSourceContextHolder;
 import com.example.plandeduce.mapper.RoomInfoMapper;
 import com.example.plandeduce.model.ProgressQueryContext;
@@ -25,7 +26,7 @@ public class RoomInfoServiceImpl implements RoomInfoService {
     /** 查询房间信息。 */
     @Override
     public RoomInfo queryRequiredRoomInfo(ProgressQueryContext queryContext) {
-        DynamicDataSourceContextHolder.set(queryContext.getDataSourceKey());
+        DynamicDataSourceContextHolder.set(DataSourceConstants.FIXED_ROOM_INFO_DATASOURCE);
         try {
             return loadRequiredRoomInfo(queryContext);
         } finally {
