@@ -20,7 +20,7 @@
 2. 当前时间字段已经分成两条轴：
    - `realTime`：真实 tick 时间
    - `deduceTime`：推演业务时间
-3. `data`、`eventData`、`indrectFirePlanData`、`commandInfoData` 是前端主消费字段。
+3. `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 是前端主消费字段。
 4. `fullData` / `incrementalData` 当前对外固定为空数组，仅兼容保留。
 
 ## 2. 最常见的业务场景
@@ -155,10 +155,11 @@ HTTP：
 
 - 收到 `SKIP`
 - `deduceTime=33`
-- 同时拿到新的 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`
-- `eventData`、`indrectFirePlanData`、`commandInfoData` 包含第 0 秒到第 33 秒的全部数据
+- 同时拿到新的 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData`
+- `data` 是 `RoomObjectHis` 跳点后的当前对象状态，内部按最近全量快照数据加跳点区间增量数据拼装
+- `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 包含第 0 秒到第 33 秒的全部数据
 - `skipRenderData.data` 与外层 `data` 一致
-- `skipRenderData` 里的另外三类数据只包含第 33 秒窗口内的数据
+- `skipRenderData` 里的另外四类数据只包含第 33 秒窗口内的数据
 
 前端注意：
 

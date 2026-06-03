@@ -61,8 +61,9 @@ curl "http://localhost:8080/plan/..."
 - `eventData`
 - `indrectFirePlanData`
 - `commandInfoData`
+- `controlPointData`
 
-虽然内部仍区分全量和增量查询，但 WebSocket 对外目前固定：
+`RoomObjectHis` 内部仍区分全量快照和增量补丁；四类过程数据按时间区间查询。WebSocket 对外目前固定：
 
 - `fullData = []`
 - `incrementalData = []`
@@ -72,12 +73,14 @@ curl "http://localhost:8080/plan/..."
 - `indrectFirePlanIncrementalData = []`
 - `commandInfoFullData = []`
 - `commandInfoIncrementalData = []`
+- `controlPointFullData = []`
+- `controlPointIncrementalData = []`
 
 当前查询规则是：
 
 - `SKIP` 时，`RoomObjectHis` 对应的 `data` 仍按快照点全量数据和补丁增量组装当前状态
-- `SKIP` 时，`eventData`、`indrectFirePlanData`、`commandInfoData` 返回第 0 秒到跳点秒的全部数据
-- `SKIP` 时，`skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外三类数据只返回跳点目标秒窗口内的数据
+- `SKIP` 时，`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 返回第 0 秒到跳点秒的全部数据
+- `SKIP` 时，`skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外四类数据只返回跳点目标秒窗口内的数据
 - `INIT`、`INTERVAL`、`PLAY` 只查各自时间段的增量数据
 
 ### 2.4 接口自动恢复行为
@@ -180,9 +183,9 @@ curl "http://localhost:8080/plan/skip?dbName=1&skip=13&sessionId=s1"
 
 说明：
 
-- 具体棋子主数据看 `data`，它表示跳点后的当前对象状态
-- 事件、间瞄计划、指令数据分别看 `eventData`、`indrectFirePlanData`、`commandInfoData`，它们包含第 0 秒到跳点秒的全部数据
-- 跳点特殊渲染看 `skipRenderData`，其中三类过程数据只覆盖跳点目标秒窗口
+- 具体棋子主数据看 `data`，它表示跳点后的当前对象状态，内部按 `RoomObjectHis` 最近全量快照数据加跳点区间增量数据拼装
+- 事件、间瞄计划、指令、控制点数据分别看 `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData`，它们包含第 0 秒到跳点秒的全部数据
+- 跳点特殊渲染看 `skipRenderData`，其中四类过程数据只覆盖跳点目标秒窗口
 - 不要再按 `fullData` / `incrementalData` 验证对外报文
 
 ### 场景八：修改全量间隔

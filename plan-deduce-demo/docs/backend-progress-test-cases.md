@@ -99,10 +99,10 @@
   - `realTime=13`
   - `deduceTime=13`
   - `fullTime=10`
-  - `data` 是第 13 秒对象当前状态
-  - `eventData`、`indrectFirePlanData`、`commandInfoData` 覆盖第 0 秒到第 13 秒全部数据
+  - `data` 是第 13 秒对象当前状态，内部按 `RoomObjectHis` 最近全量快照数据加跳点区间增量数据拼装
+  - `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 覆盖第 0 秒到第 13 秒全部数据
   - `skipRenderData.data` 与外层 `data` 一致
-  - `skipRenderData` 里的另外三类数据只覆盖第 13 秒窗口
+  - `skipRenderData` 里的另外四类数据只覆盖第 13 秒窗口
 
 ### TC-P0-008 暂停状态下 skip 会自动恢复
 
@@ -117,8 +117,8 @@
   - 先收到 `INTERVAL`
   - `INTERVAL` 只返回当前秒增量数据
   - 跳点后 `SKIP.fullTime=20`
-  - 跳点后的三类过程数据仍从第 0 秒返回到第 33 秒，不按第 20 秒拆成全量加增量
-  - `skipRenderData` 里的三类过程数据只覆盖第 33 秒窗口
+  - 跳点后的四类过程数据仍从第 0 秒返回到第 33 秒，不按第 20 秒拆成全量加增量
+  - `skipRenderData` 里的四类过程数据只覆盖第 33 秒窗口
 
 ### TC-P0-009A 播放命中整间隔点时仍只发增量
 
@@ -128,7 +128,7 @@
 - 预期：
   - 第一条 `PLAY.realTime=10`
   - `PLAY.fullTime=10`
-  - 对外仍只消费 `data/eventData/indrectFirePlanData/commandInfoData`
+  - 对外仍只消费 `data/eventData/indrectFirePlanData/commandInfoData/controlPointData`
   - 不因为命中整间隔点切换成全量报文
 
 ### TC-P0-010 播放结束时的最终状态

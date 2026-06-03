@@ -148,9 +148,9 @@
 跳转不是简单改一下 `currentTime`，还需要：
 
 - 更新 `realTime`
-- `RoomObjectHis` 查询跳点对应的对象当前状态
-- `FireJudgeResult`、`IndrectFirePlan`、`CommandInfo` 查询第 0 秒到跳点秒的全部数据
-- `FireJudgeResult`、`IndrectFirePlan`、`CommandInfo` 额外查询跳点目标秒窗口内的数据，放入 `skipRenderData`
+- `RoomObjectHis` 查询最近全量快照数据和跳点区间增量数据，拼装跳点对应的对象当前状态
+- `FireJudgeResult`、`IndrectFirePlan`、`CommandInfo`、`ControlPoint` 查询第 0 秒到跳点秒的全部数据
+- `FireJudgeResult`、`IndrectFirePlan`、`CommandInfo`、`ControlPoint` 额外查询跳点目标秒窗口内的数据，放入 `skipRenderData`
 - 一次性推送一条 `SKIP` 消息给前端
 
 这些动作本身就应该和正常播放推送共用同一条串行发送链路，否则很容易出现：
