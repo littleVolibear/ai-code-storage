@@ -55,8 +55,8 @@
 9. 全量间隔与播放帧发送规则
 - 当前全量间隔单位是秒。
 - 如果间隔配置为 10 分钟，则等价于 600 秒。
-- 跳点 `SKIP` 时，`RoomObjectHis` 对应的 `data` 仍按最近快照点全量数据和补丁增量拼装当前状态。
-- 跳点 `SKIP` 时，`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 直接返回第 0 秒到跳点秒的全部数据。
+- 跳点 `SKIP` 时，`RoomObjectHis` 对应的 `data` 和 `controlPointData` 按各自最近快照点全量数据和补丁增量拼装当前状态。
+- 跳点 `SKIP` 时，`eventData`、`indrectFirePlanData`、`commandInfoData` 直接返回第 0 秒到跳点秒的全部数据。
 - `INIT`、`INTERVAL`、`PLAY` 不查全量快照，只查询各自对应时间段的增量数据。
 - 即便播放刚好落在 0 分钟、10 分钟、20 分钟等整间隔点，播放帧也仍然只发送当前步长区间的增量数据。
 
@@ -67,26 +67,23 @@
 - 播放到 10 分钟整：仍只发送第 10 分钟这一分钟的增量数据，不切换成全量数据。
 
 11. 跳点发送规则
-- `data`：发送跳点后的对象当前状态，`RoomObjectHis` 内部仍沿用快照点全量数据和补丁增量的组装方式。
-- `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData`：发送第 0 秒到目标跳点秒的全部数据。
-- `skipRenderData`：发送本次跳点需要特殊渲染的数据；其中 `skipRenderData.data` 与外层 `data` 一致，另外四类数据只包含目标秒窗口。
+- `data`、`controlPointData`：发送跳点后的当前状态，内部按各自最近快照点全量数据和补丁增量组装。
+- `eventData`、`indrectFirePlanData`、`commandInfoData`：发送第 0 秒到目标跳点秒的全部数据。
+- `skipRenderData`：包含 `data`、`eventData`、`commandInfoData`、`controlPointData`；其中 `data` 与外层一致，其余三类只包含目标秒窗口，不包含 `indrectFirePlanData`。
 - 不存在“间隔点的全量数据再加上增量数据”这一对外语义。
 
 12. 跳点示例（按 10 分钟间隔）
-- 跳到 1 分钟：`data` 是第 1 分钟对象状态；另外四类数据发送 0 到 1 分钟全部数据。
-- 跳到 3 分钟：`data` 是第 3 分钟对象状态；另外四类数据发送 0 到 3 分钟全部数据。
-- 跳到 10 分钟：`data` 是第 10 分钟对象状态；另外四类数据发送 0 到 10 分钟全部数据。
-- 跳到 12 分钟：`data` 是第 12 分钟对象状态；另外四类数据发送 0 到 12 分钟全部数据。
-- `skipRenderData` 里的四类过程数据始终只取跳点目标秒窗口，例如跳到 10 分钟时取 `600000 <= simTime < 601000`。
+- 跳到任意时间点：`data` 和 `controlPointData` 是该时间点的当前状态；`eventData`、`indrectFirePlanData`、`commandInfoData` 发送 0 到跳点的全部数据。
+- `skipRenderData` 中的 `eventData`、`commandInfoData`、`controlPointData` 始终只取跳点目标秒窗口，例如跳到 10 分钟时取 `600000 <= simTime < 601000`。
 
 13. 协议说明
-- `data` 的快照拼装逻辑只适用于 `RoomObjectHis`。
+- 快照拼装逻辑适用于 `RoomObjectHis` 和 `ControlPoint`。
 - 当前对外协议里，前端主消费字段是 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData`。
-- 前端需要处理跳点特殊渲染时，直接使用 `skipRenderData`，不要再从外层四类过程数据里按 `simTime` 自行猜测。
+- 前端需要处理跳点特殊渲染时，直接使用 `skipRenderData`；间瞄数据不属于 `skipRenderData`。
 - `fullData`、`incrementalData` 以及对应的 `*FullData`、`*IncrementalData` 当前固定为空数组，仅作兼容保留。
 
 结论
 - 当前代码符合以上场景要求。
 - 自动播放规则包括两类操作：调速到非 0、跳点。
 - 结束后支持重新播放。
-- 只有跳点会对 `RoomObjectHis` 内部组合全量快照，其他播放帧一律只走增量查询。
+- 只有跳点会对 `RoomObjectHis` 和 `ControlPoint` 内部组合全量快照，其他播放帧一律只走增量查询。

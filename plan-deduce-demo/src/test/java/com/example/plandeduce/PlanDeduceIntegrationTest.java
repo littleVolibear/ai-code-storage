@@ -1147,9 +1147,10 @@ class PlanDeduceIntegrationTest {
         assertTrue(skipRenderData.isObject());
         assertEquals(messageNode.path("data"), skipRenderData.path("data"));
         assertEventTimes(messageNode, skipRenderData.path("eventData"), repeatEventSimtime(expectedSecond));
-        assertIndirectFirePlanTimes(messageNode, skipRenderData.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(expectedSecond));
+        assertFalse(skipRenderData.has("indrectFirePlanData"));
         assertCommandInfoTimes(messageNode, skipRenderData.path("commandInfoData"), repeatCommandInfoSimtime(expectedSecond));
         assertControlPointTimes(messageNode, skipRenderData.path("controlPointData"), repeatControlPointSimtime(expectedSecond));
+        assertControlPointTimes(messageNode, messageNode.path("controlPointData"), repeatControlPointSimtime(expectedSecond));
     }
 
     private void assertRoomObjectFieldsPresent(JsonNode dataNode) {

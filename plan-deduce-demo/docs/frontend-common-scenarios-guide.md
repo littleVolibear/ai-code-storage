@@ -156,10 +156,10 @@ HTTP：
 - 收到 `SKIP`
 - `deduceTime=33`
 - 同时拿到新的 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData`
-- `data` 是 `RoomObjectHis` 跳点后的当前对象状态，内部按最近全量快照数据加跳点区间增量数据拼装
-- `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 包含第 0 秒到第 33 秒的全部数据
+- `data` 和 `controlPointData` 是跳点后的当前状态，内部按各自最近全量快照数据加跳点区间增量数据拼装
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 包含第 0 秒到第 33 秒的全部数据
 - `skipRenderData.data` 与外层 `data` 一致
-- `skipRenderData` 里的另外四类数据只包含第 33 秒窗口内的数据
+- `skipRenderData.eventData`、`commandInfoData`、`controlPointData` 只包含第 33 秒窗口内的数据，且不包含 `indrectFirePlanData`
 
 前端注意：
 

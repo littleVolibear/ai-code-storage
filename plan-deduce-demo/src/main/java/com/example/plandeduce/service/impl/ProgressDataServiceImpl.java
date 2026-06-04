@@ -55,6 +55,7 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     @Override
     public void preloadFullSnapshots(ProgressSnapshotQuery snapshotQuery) {
         roomObjectHisDataService.preloadSnapshots(snapshotQuery);
+        controlPointDataService.preloadSnapshots(snapshotQuery);
     }
 
     /** 转发对象全量快照查询。 */
@@ -97,6 +98,18 @@ public class ProgressDataServiceImpl implements ProgressDataService {
     @Override
     public List<ControlPoint> queryControlPointIncrementalData(ProgressRangeQuery rangeQuery) {
         return controlPointDataService.queryIncrementalData(rangeQuery);
+    }
+
+    /** 转发控制点全量快照查询。 */
+    @Override
+    public List<ControlPoint> queryControlPointFullData(ProgressSnapshotQuery snapshotQuery) {
+        return controlPointDataService.queryFullData(snapshotQuery);
+    }
+
+    /** 转发控制点快照补丁查询。 */
+    @Override
+    public List<ControlPoint> queryControlPointSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
+        return controlPointDataService.querySnapshotIncrementalData(rangeQuery);
     }
 
 }

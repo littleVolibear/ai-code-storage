@@ -74,9 +74,9 @@ http://localhost:8080/plan/sendPlanDeduce?dbName=1&checkpoint=1&skip=0&sessionId
 
 跳转到第 6 秒：
 
-- `data` 按 `RoomObjectHis` 最近全量快照数据加跳点区间增量数据拼装当前状态。
-- `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 返回第 0-6 秒的全部数据。
-- `skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外四类数据只返回第 6 秒窗口内的数据。
+- `data` 和 `controlPointData` 按各自最近全量快照数据加跳点区间增量数据拼装当前状态。
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 返回第 0-6 秒的全部数据。
+- `skipRenderData.data` 与外层 `data` 一致；`eventData`、`commandInfoData`、`controlPointData` 只返回第 6 秒窗口内的数据，不包含 `indrectFirePlanData`。
 
 ```text
 http://localhost:8080/plan/skip?dbName=1&skip=6&sessionId=s1
@@ -84,9 +84,9 @@ http://localhost:8080/plan/skip?dbName=1&skip=6&sessionId=s1
 
 跳转到第 11 秒：
 
-- `data` 按 `RoomObjectHis` 最近全量快照数据加跳点区间增量数据拼装当前状态。
-- `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 返回第 0-11 秒的全部数据。
-- `skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外四类数据只返回第 11 秒窗口内的数据。
+- `data` 和 `controlPointData` 按各自最近全量快照数据加跳点区间增量数据拼装当前状态。
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 返回第 0-11 秒的全部数据。
+- `skipRenderData.data` 与外层 `data` 一致；`eventData`、`commandInfoData`、`controlPointData` 只返回第 11 秒窗口内的数据，不包含 `indrectFirePlanData`。
 
 ```text
 http://localhost:8080/plan/skip?dbName=1&skip=11&sessionId=s1
@@ -94,9 +94,9 @@ http://localhost:8080/plan/skip?dbName=1&skip=11&sessionId=s1
 
 跳转到第 20 秒：
 
-- `data` 按 `RoomObjectHis` 最近全量快照数据加跳点区间增量数据拼装当前状态。
-- `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 返回第 0-20 秒的全部数据。
-- `skipRenderData.data` 与外层 `data` 一致；`skipRenderData` 里的另外四类数据只返回第 20 秒窗口内的数据。
+- `data` 和 `controlPointData` 按各自最近全量快照数据加跳点区间增量数据拼装当前状态。
+- `eventData`、`indrectFirePlanData`、`commandInfoData` 返回第 0-20 秒的全部数据。
+- `skipRenderData.data` 与外层 `data` 一致；`eventData`、`commandInfoData`、`controlPointData` 只返回第 20 秒窗口内的数据，不包含 `indrectFirePlanData`。
 
 ```text
 http://localhost:8080/plan/skip?dbName=1&skip=20&sessionId=s1

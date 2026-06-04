@@ -130,5 +130,15 @@ class ScenarioTaskReplayTest {
             return Collections.emptyList();
         }
 
+        @Override
+        public List<ControlPoint> queryControlPointFullData(ProgressSnapshotQuery snapshotQuery) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<ControlPoint> queryControlPointSnapshotIncrementalData(ProgressRangeQuery rangeQuery) {
+            return Collections.emptyList();
+        }
+
     }
 }

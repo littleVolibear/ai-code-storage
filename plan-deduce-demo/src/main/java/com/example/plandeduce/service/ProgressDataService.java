@@ -40,4 +40,10 @@ public interface ProgressDataService {
 
     /** 查询控制点增量数据。 */
     List<ControlPoint> queryControlPointIncrementalData(ProgressRangeQuery rangeQuery);
+
+    /** 查询控制点全量快照。 */
+    List<ControlPoint> queryControlPointFullData(ProgressSnapshotQuery snapshotQuery);
+
+    /** 查询控制点快照补丁。 */
+    List<ControlPoint> queryControlPointSnapshotIncrementalData(ProgressRangeQuery rangeQuery);
 }

@@ -124,7 +124,7 @@ public class PlanDeducePush {
         List<FireJudgeResult> mergedEventData = mergeEventData(type, eventFullData, eventIncrementalData);
         List<IndrectFirePlan> mergedIndrectFirePlanData = mergeIndrectFirePlanData(type, indrectFirePlanFullData, indrectFirePlanIncrementalData);
         List<CommandInfo> mergedCommandInfoData = mergeCommandInfoData(type, commandInfoFullData, commandInfoIncrementalData);
-        List<ControlPoint> mergedControlPointData = mergeControlPointData(type, controlPointFullData, controlPointIncrementalData);
+        List<ControlPoint> mergedControlPointData = mergeControlPointData(controlPointFullData, controlPointIncrementalData);
         if (skipRenderData != null) {
             skipRenderData.setData(mergedData);
         }
@@ -294,12 +294,10 @@ public class PlanDeducePush {
         }
         data.setData(safeRoomObjectList(data.getData()));
         data.setEventData(safeEventDataList(data.getEventData()));
-        data.setIndrectFirePlanData(safeIndrectFirePlanList(data.getIndrectFirePlanData()));
         data.setCommandInfoData(safeCommandInfoList(data.getCommandInfoData()));
         data.setControlPointData(safeControlPointList(data.getControlPointData()));
         hydrateRoomObjectRealTime(data.getData(), realTime);
         hydrateEventRealTime(data.getEventData(), realTime);
-        hydrateIndrectFirePlanRealTime(data.getIndrectFirePlanData(), realTime);
         hydrateCommandInfoRealTime(data.getCommandInfoData(), realTime);
         hydrateControlPointRealTime(data.getControlPointData(), realTime);
         return data;
@@ -371,14 +369,8 @@ public class PlanDeducePush {
         return new ArrayList<>(rowsByObjId.values());
     }
 
-    /** 合并控制点数据；SKIP 时保留 0 到跳点秒的完整控制点列表。 */
-    private List<ControlPoint> mergeControlPointData(String type, List<ControlPoint> fullData, List<ControlPoint> incrementalData) {
-        if ("SKIP".equals(type)) {
-            List<ControlPoint> replayData = new ArrayList<>(fullData.size() + incrementalData.size());
-            replayData.addAll(fullData);
-            replayData.addAll(incrementalData);
-            return replayData;
-        }
+    /** 按 id 合并控制点快照和补丁。 */
+    private List<ControlPoint> mergeControlPointData(List<ControlPoint> fullData, List<ControlPoint> incrementalData) {
         Map<Integer, ControlPoint> rowsById = new LinkedHashMap<>();
         for (ControlPoint row : fullData) {
             if (row != null && row.getId() != null) {

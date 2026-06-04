@@ -99,10 +99,10 @@
   - `realTime=13`
   - `deduceTime=13`
   - `fullTime=10`
-  - `data` 是第 13 秒对象当前状态，内部按 `RoomObjectHis` 最近全量快照数据加跳点区间增量数据拼装
-  - `eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData` 覆盖第 0 秒到第 13 秒全部数据
+  - `data` 和 `controlPointData` 是第 13 秒当前状态，内部按各自最近全量快照数据加跳点区间增量数据拼装
+  - `eventData`、`indrectFirePlanData`、`commandInfoData` 覆盖第 0 秒到第 13 秒全部数据
   - `skipRenderData.data` 与外层 `data` 一致
-  - `skipRenderData` 里的另外四类数据只覆盖第 13 秒窗口
+  - `skipRenderData.eventData`、`commandInfoData`、`controlPointData` 只覆盖第 13 秒窗口，且不包含 `indrectFirePlanData`
 
 ### TC-P0-008 暂停状态下 skip 会自动恢复
 
@@ -117,8 +117,9 @@
   - 先收到 `INTERVAL`
   - `INTERVAL` 只返回当前秒增量数据
   - 跳点后 `SKIP.fullTime=20`
-  - 跳点后的四类过程数据仍从第 0 秒返回到第 33 秒，不按第 20 秒拆成全量加增量
-  - `skipRenderData` 里的四类过程数据只覆盖第 33 秒窗口
+  - 跳点后的事件、间瞄、指令数据仍从第 0 秒返回到第 33 秒，不按第 20 秒拆成全量加增量
+  - `controlPointData` 按最近全量快照和补丁增量组装第 33 秒当前状态
+  - `skipRenderData` 不包含间瞄数据
 
 ### TC-P0-009A 播放命中整间隔点时仍只发增量
 
