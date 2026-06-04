@@ -100,7 +100,8 @@
   - `deduceTime=13`
   - `fullTime=10`
   - `data` 和 `controlPointData` 是第 13 秒当前状态，内部按各自最近全量快照数据加跳点区间增量数据拼装
-  - `eventData`、`indrectFirePlanData`、`commandInfoData` 覆盖第 0 秒到第 13 秒全部数据
+  - `eventData`、`commandInfoData` 覆盖第 0 秒到第 13 秒全部数据
+  - 外层 `indrectFirePlanData` 只覆盖第 13 秒窗口
   - `skipRenderData.data` 与外层 `data` 一致
   - `skipRenderData.eventData`、`commandInfoData`、`controlPointData` 只覆盖第 13 秒窗口，且不包含 `indrectFirePlanData`
 
@@ -117,7 +118,8 @@
   - 先收到 `INTERVAL`
   - `INTERVAL` 只返回当前秒增量数据
   - 跳点后 `SKIP.fullTime=20`
-  - 跳点后的事件、间瞄、指令数据仍从第 0 秒返回到第 33 秒，不按第 20 秒拆成全量加增量
+  - 跳点后的事件、指令数据仍从第 0 秒返回到第 33 秒，不按第 20 秒拆成全量加增量
+  - 外层 `indrectFirePlanData` 只返回第 33 秒窗口内的间瞄数据
   - `controlPointData` 按最近全量快照和补丁增量组装第 33 秒当前状态
   - `skipRenderData` 不包含间瞄数据
 

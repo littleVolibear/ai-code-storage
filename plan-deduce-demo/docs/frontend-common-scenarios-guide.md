@@ -157,7 +157,8 @@ HTTP：
 - `deduceTime=33`
 - 同时拿到新的 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData`
 - `data` 和 `controlPointData` 是跳点后的当前状态，内部按各自最近全量快照数据加跳点区间增量数据拼装
-- `eventData`、`indrectFirePlanData`、`commandInfoData` 包含第 0 秒到第 33 秒的全部数据
+- `eventData`、`commandInfoData` 包含第 0 秒到第 33 秒的全部数据
+- 外层 `indrectFirePlanData` 只包含第 33 秒窗口内的数据
 - `skipRenderData.data` 与外层 `data` 一致
 - `skipRenderData.eventData`、`commandInfoData`、`controlPointData` 只包含第 33 秒窗口内的数据，且不包含 `indrectFirePlanData`
 

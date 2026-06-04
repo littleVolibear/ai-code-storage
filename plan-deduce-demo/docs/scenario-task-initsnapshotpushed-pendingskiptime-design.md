@@ -149,7 +149,8 @@
 
 - 更新 `realTime`
 - `RoomObjectHis`、`ControlPoint` 查询最近全量快照数据和跳点区间增量数据，拼装跳点对应的当前状态
-- `FireJudgeResult`、`IndrectFirePlan`、`CommandInfo` 查询第 0 秒到跳点秒的全部数据
+- `FireJudgeResult`、`CommandInfo` 查询第 0 秒到跳点秒的全部数据
+- `IndrectFirePlan` 只查询跳点目标秒窗口内的数据，通过外层 `indrectFirePlanData` 返回前端
 - `FireJudgeResult`、`CommandInfo`、`ControlPoint` 额外查询跳点目标秒窗口内的数据，放入 `skipRenderData`
 - `IndrectFirePlan` 不放入 `skipRenderData`
 - 一次性推送一条 `SKIP` 消息给前端

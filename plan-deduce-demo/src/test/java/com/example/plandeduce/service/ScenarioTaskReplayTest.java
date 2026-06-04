@@ -61,6 +61,30 @@ class ScenarioTaskReplayTest {
         }
     }
 
+    @Test
+    void shouldQueryOnlyTargetSecondIndirectFirePlanWhenSkipping() throws Exception {
+        CapturingWebSocketHandler handler = new CapturingWebSocketHandler();
+        PlanDeducePush push = new PlanDeducePush(handler);
+        PlanDeduceProperties properties = new PlanDeduceProperties();
+        properties.setTickIntervalMs(60_000L);
+        FakeProgressDataService progressDataService = new FakeProgressDataService();
+
+        ScenarioTaskManager taskManager = new ScenarioTaskManager(progressDataService, push, properties);
+        try {
+            ScenarioTask task = taskManager.getOrCreate("1", "wargame1_1", "session-1");
+            task.initialize(0, null);
+            task.skip(13);
+
+            invokeTickSafely(task);
+
+            assertEquals(12, progressDataService.lastIndrectFirePlanRangeQuery.getFromExclusive());
+            assertEquals(13, progressDataService.lastIndrectFirePlanRangeQuery.getToInclusive());
+            assertEquals("SKIP", handler.singleMessage().getType());
+        } finally {
+            taskManager.destroy();
+        }
+    }
+
     private void invokeTickSafely(ScenarioTask task) throws Exception {
         Method method = ScenarioTask.class.getDeclaredMethod("tickSafely");
         method.setAccessible(true);
@@ -86,6 +110,8 @@ class ScenarioTaskReplayTest {
     }
 
     private static class FakeProgressDataService implements ProgressDataService {
+        private ProgressRangeQuery lastIndrectFirePlanRangeQuery;
+
         @Override
         public ProgressTimeline queryProgressTimeline(ProgressQueryContext queryContext) {
             return new ProgressTimeline("2026-01-01 00:00:00", 5);
@@ -117,6 +143,7 @@ class ScenarioTaskReplayTest {
 
         @Override
         public List<IndrectFirePlan> queryIndrectFirePlanIncrementalData(ProgressRangeQuery rangeQuery) {
+            lastIndrectFirePlanRangeQuery = rangeQuery;
             return Collections.emptyList();
         }
 

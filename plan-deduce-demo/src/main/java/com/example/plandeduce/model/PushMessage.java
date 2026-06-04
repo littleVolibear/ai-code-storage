@@ -15,7 +15,7 @@ public class PushMessage {
      * 3. data/eventData/indrectFirePlanData/commandInfoData/controlPointData 里的 simTime 保持数据库表中的原始 simTime，不会都被改成 5；
      * 4. 除 SKIP 外，INIT/INTERVAL/PLAY 都只查询当前时间段增量数据，不单独下发全量数据；
      *    SKIP 时 data 和 controlPointData 按最近全量快照加增量补丁组装当前状态，
-     *    eventData、indrectFirePlanData、commandInfoData 返回第 0 秒到跳点秒的全部数据；
+     *    eventData、commandInfoData 返回第 0 秒到跳点秒的全部数据，indrectFirePlanData 只返回跳点目标秒数据；
      * 5. SKIP 时 skipRenderData.data 与外层 data 一致，eventData、commandInfoData、controlPointData
      *    只包含跳点目标秒窗口内的数据，不包含 indrectFirePlanData；
      * 6. data/eventData/indrectFirePlanData/commandInfoData/controlPointData 里的 realTime 和外层 realTime 保持一致，
@@ -80,7 +80,7 @@ public class PushMessage {
     private List<FireJudgeResult> eventData; // 当前帧或 SKIP 0 到跳点秒的事件数据
     private List<FireJudgeResult> eventFullData; // 兼容保留字段，当前对外固定为空数组
     private List<FireJudgeResult> eventIncrementalData; // 兼容保留字段，当前对外固定为空数组
-    private List<IndrectFirePlan> indrectFirePlanData; // 当前帧或 SKIP 0 到跳点秒的间瞄计划数据
+    private List<IndrectFirePlan> indrectFirePlanData; // 当前帧或 SKIP 跳点目标秒的间瞄计划数据
     private List<IndrectFirePlan> indrectFirePlanFullData; // 兼容保留字段，当前对外固定为空数组
     private List<IndrectFirePlan> indrectFirePlanIncrementalData; // 兼容保留字段，当前对外固定为空数组
     private List<CommandInfo> commandInfoData; // 当前帧或 SKIP 0 到跳点秒的指令信息数据

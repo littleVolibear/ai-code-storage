@@ -192,7 +192,7 @@ public class PlanDeducePush {
     /** 生成快照说明文案。 */
     private String buildSnapshotMessage(String type, int realTime, int deduceTime, int fullTime, int incrementalFromExclusive) {
         if ("SKIP".equals(type)) {
-            return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 0-" + deduceTime + " 秒数据";
+            return "当前真实时间 " + realTime + " 秒，推演时间 " + deduceTime + " 秒，返回第 " + deduceTime + " 秒跳点数据";
         }
         int incrementalStart = incrementalFromExclusive + 1;
         if (incrementalStart >= deduceTime) {
@@ -325,7 +325,7 @@ public class PlanDeducePush {
         return new ArrayList<>(rowsByEventPair.values());
     }
 
-    /** 合并间瞄计划数据；SKIP 时保留 0 到跳点秒的完整计划列表。 */
+    /** 合并间瞄计划数据；SKIP 时保留跳点目标秒内的完整计划列表。 */
     private List<IndrectFirePlan> mergeIndrectFirePlanData(String type, List<IndrectFirePlan> fullData, List<IndrectFirePlan> incrementalData) {
         if ("SKIP".equals(type)) {
             List<IndrectFirePlan> replayData = new ArrayList<>(fullData.size() + incrementalData.size());

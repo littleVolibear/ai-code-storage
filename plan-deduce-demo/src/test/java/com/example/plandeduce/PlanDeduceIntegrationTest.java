@@ -91,7 +91,7 @@ class PlanDeduceIntegrationTest {
         assertEquals(11, skipMessage.path("deduceTime").asInt());
         assertSimtimes(skipMessage, skipMessage.path("data"), repeatSimtime(11));
         assertEventTimes(skipMessage, skipMessage.path("eventData"), rangeRepeatedEvents(0, 11));
-        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), rangeRepeatedIndirectFirePlans(0, 11));
+        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(11));
         assertCommandInfoTimes(skipMessage, skipMessage.path("commandInfoData"), rangeRepeatedCommandInfos(0, 11));
         assertSkipRenderData(skipMessage, 11);
         assertEmptyArray(skipMessage.path("eventFullData"));
@@ -117,7 +117,7 @@ class PlanDeduceIntegrationTest {
         assertEquals(13, skipMessage.path("deduceTime").asInt());
         assertSimtimes(skipMessage, skipMessage.path("data"), repeatSimtime(13));
         assertEventTimes(skipMessage, skipMessage.path("eventData"), rangeRepeatedEvents(0, 13));
-        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), rangeRepeatedIndirectFirePlans(0, 13));
+        assertIndirectFirePlanTimes(skipMessage, skipMessage.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(13));
         assertCommandInfoTimes(skipMessage, skipMessage.path("commandInfoData"), rangeRepeatedCommandInfos(0, 13));
         assertSkipRenderData(skipMessage, 13);
         assertEmptyArray(skipMessage.path("eventFullData"));
@@ -784,7 +784,7 @@ class PlanDeduceIntegrationTest {
         assertCompatibilityArraysEmpty(skip);
         assertSimtimes(skip, skip.path("data"), repeatSimtime(13));
         assertEventTimes(skip, skip.path("eventData"), rangeRepeatedEvents(0, 13));
-        assertIndirectFirePlanTimes(skip, skip.path("indrectFirePlanData"), rangeRepeatedIndirectFirePlans(0, 13));
+        assertIndirectFirePlanTimes(skip, skip.path("indrectFirePlanData"), repeatIndrectFirePlanSimtime(13));
         assertCommandInfoTimes(skip, skip.path("commandInfoData"), rangeRepeatedCommandInfos(0, 13));
         assertSkipRenderData(skip, 13);
     }
@@ -1262,10 +1262,6 @@ class PlanDeduceIntegrationTest {
 
     private int[] rangeRepeatedEvents(int startInclusive, int endInclusive) {
         return rangeRepeated(startInclusive, endInclusive, FIRE_EVENTS_PER_SECOND);
-    }
-
-    private int[] rangeRepeatedIndirectFirePlans(int startInclusive, int endInclusive) {
-        return rangeRepeated(startInclusive, endInclusive, INDIRECT_FIRE_PLANS_PER_SECOND);
     }
 
     private int[] rangeRepeatedCommandInfos(int startInclusive, int endInclusive) {

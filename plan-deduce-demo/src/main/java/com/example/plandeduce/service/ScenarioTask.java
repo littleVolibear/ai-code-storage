@@ -297,7 +297,7 @@ public class ScenarioTask {
         List<RoomObjectHis> fullData = progressDataService.queryFullData(snapshotQuery);
         List<RoomObjectHis> incrementalData = progressDataService.querySnapshotIncrementalData(rangeQuery);
         List<FireJudgeResult> eventIncrementalData = progressDataService.queryEventIncrementalData(replayRangeQuery);
-        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(replayRangeQuery);
+        List<IndrectFirePlan> indrectFirePlanIncrementalData = progressDataService.queryIndrectFirePlanIncrementalData(renderRangeQuery);
         List<CommandInfo> commandInfoIncrementalData = progressDataService.queryCommandInfoIncrementalData(replayRangeQuery);
         List<ControlPoint> controlPointFullData = progressDataService.queryControlPointFullData(snapshotQuery);
         List<ControlPoint> controlPointIncrementalData = progressDataService.queryControlPointSnapshotIncrementalData(rangeQuery);
