@@ -9,5 +9,5 @@ public class SkipRenderData {
     private List<RoomObjectHis> data; // 与 SKIP 外层 data 一致，表示跳点后的对象当前状态
     private List<FireJudgeResult> eventData; // 跳点目标秒窗口内的事件数据
     private List<CommandInfo> commandInfoData; // 跳点目标秒窗口内的指令信息数据
-    private List<ControlPoint> controlPointData; // 跳点目标秒窗口内的控制点数据
+    private List<ControlPoint> controlPointData; // 跳点目标秒窗口内由夺控裁决事件匹配出的控制点数据
 }

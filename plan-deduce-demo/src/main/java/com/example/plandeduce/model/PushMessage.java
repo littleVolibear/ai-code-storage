@@ -12,9 +12,10 @@ public class PushMessage {
      * 含义说明：
      * 1. realTime=3：真实只过去了 1 秒，所以真实播放时间从 2 走到 3；
      * 2. deduceTime=5：推演按 3 倍速推进了 3 个秒点，所以当前推演时间走到 5；
-     * 3. data/eventData/indrectFirePlanData/commandInfoData/controlPointData 里的 simTime 保持数据库表中的原始 simTime，不会都被改成 5；
+     * 3. data/eventData/indrectFirePlanData/commandInfoData 里的 simTime 保持数据库表中的原始 simTime；
+     *    controlPointData 里的 simTime 来自匹配到的 FIRE_JUDGE_RESULT.simTime，不会都被改成 5；
      * 4. 除 SKIP 外，INIT/INTERVAL/PLAY 都只查询当前时间段增量数据，不单独下发全量数据；
-     *    SKIP 时 data 和 controlPointData 按最近全量快照加增量补丁组装当前状态，
+     *    SKIP 时 data 按最近全量快照加增量补丁组装当前状态，controlPointData 按夺控裁决事件组装当前状态，
      *    eventData、commandInfoData 返回第 0 秒到跳点秒的全部数据，indrectFirePlanData 只返回跳点目标秒数据；
      * 5. SKIP 时 skipRenderData.data 与外层 data 一致，eventData、commandInfoData、controlPointData
      *    只包含跳点目标秒窗口内的数据，不包含 indrectFirePlanData；
@@ -86,7 +87,7 @@ public class PushMessage {
     private List<CommandInfo> commandInfoData; // 当前帧或 SKIP 0 到跳点秒的指令信息数据
     private List<CommandInfo> commandInfoFullData; // 兼容保留字段，当前对外固定为空数组
     private List<CommandInfo> commandInfoIncrementalData; // 兼容保留字段，当前对外固定为空数组
-    private List<ControlPoint> controlPointData; // 当前帧或 SKIP 跳点后的控制点当前状态
+    private List<ControlPoint> controlPointData; // 由 FIRE_JUDGE_RESULT.type=9 匹配出的控制点数据
     private List<ControlPoint> controlPointFullData; // 兼容保留字段，当前对外固定为空数组
     private List<ControlPoint> controlPointIncrementalData; // 兼容保留字段，当前对外固定为空数组
     private SkipRenderData skipRenderData; // SKIP 专用，包含本次跳点需要特殊渲染的数据

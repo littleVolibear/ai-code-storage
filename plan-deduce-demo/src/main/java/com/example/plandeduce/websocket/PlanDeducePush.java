@@ -369,19 +369,19 @@ public class PlanDeducePush {
         return new ArrayList<>(rowsByObjId.values());
     }
 
-    /** 按 id 合并控制点快照和补丁。 */
+    /** 按 controlPointId 合并控制点当前状态和夺控补丁。 */
     private List<ControlPoint> mergeControlPointData(List<ControlPoint> fullData, List<ControlPoint> incrementalData) {
-        Map<Integer, ControlPoint> rowsById = new LinkedHashMap<>();
+        Map<Integer, ControlPoint> rowsByControlPointId = new LinkedHashMap<>();
         for (ControlPoint row : fullData) {
-            if (row != null && row.getId() != null) {
-                rowsById.put(row.getId(), row);
+            if (row != null && row.getControlPointId() != null) {
+                rowsByControlPointId.put(row.getControlPointId(), row);
             }
         }
         for (ControlPoint row : incrementalData) {
-            if (row != null && row.getId() != null) {
-                rowsById.put(row.getId(), row);
+            if (row != null && row.getControlPointId() != null) {
+                rowsByControlPointId.put(row.getControlPointId(), row);
             }
         }
-        return new ArrayList<>(rowsById.values());
+        return new ArrayList<>(rowsByControlPointId.values());
     }
 }

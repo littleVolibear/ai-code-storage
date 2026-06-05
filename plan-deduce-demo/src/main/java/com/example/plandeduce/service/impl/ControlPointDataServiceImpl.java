@@ -4,18 +4,16 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.plandeduce.config.DynamicDataSourceContextHolder;
 import com.example.plandeduce.mapper.ControlPointMapper;
+import com.example.plandeduce.mapper.FireJudgeResultMapper;
 import com.example.plandeduce.model.ControlPoint;
-import com.example.plandeduce.model.ProgressQueryContext;
+import com.example.plandeduce.model.FireJudgeResult;
 import com.example.plandeduce.model.ProgressRangeQuery;
 import com.example.plandeduce.model.ProgressSnapshotQuery;
 import com.example.plandeduce.service.ControlPointDataService;
-import com.example.plandeduce.service.RoomInfoService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,15 +22,16 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 /** 实现控制点数据查询。 */
 public class ControlPointDataServiceImpl implements ControlPointDataService {
+    private static final int FIRE_JUDGE_TYPE_CONTROL_POINT = 9;
+
     private final ControlPointMapper controlPointMapper;
-    private final RoomInfoService roomInfoService;
+    private final FireJudgeResultMapper fireJudgeResultMapper;
     private final Map<String, Map<Integer, Map<Integer, List<ControlPoint>>>> fullSnapshotCache = new ConcurrentHashMap<>();
-    private final Map<String, Date> roomStartTimeCache = new ConcurrentHashMap<>();
 
     /** 注入依赖。 */
-    public ControlPointDataServiceImpl(ControlPointMapper controlPointMapper, RoomInfoService roomInfoService) {
+    public ControlPointDataServiceImpl(ControlPointMapper controlPointMapper, FireJudgeResultMapper fireJudgeResultMapper) {
         this.controlPointMapper = controlPointMapper;
-        this.roomInfoService = roomInfoService;
+        this.fireJudgeResultMapper = fireJudgeResultMapper;
     }
 
     /** 预热基础快照。 */
@@ -41,7 +40,6 @@ public class ControlPointDataServiceImpl implements ControlPointDataService {
         String dataSourceKey = snapshotQuery.getDataSourceKey();
         DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
-            ensureRoomStartTimeLoaded(snapshotQuery.toQueryContext());
             ensureSnapshotCacheInitialized(snapshotQuery);
         } finally {
             DynamicDataSourceContextHolder.clear();
@@ -54,7 +52,6 @@ public class ControlPointDataServiceImpl implements ControlPointDataService {
         String dataSourceKey = snapshotQuery.getDataSourceKey();
         DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
-            ensureRoomStartTimeLoaded(snapshotQuery.toQueryContext());
             return cloneDataList(getFullSnapshotAtCachePoint(snapshotQuery));
         } finally {
             DynamicDataSourceContextHolder.clear();
@@ -69,7 +66,6 @@ public class ControlPointDataServiceImpl implements ControlPointDataService {
         Integer toInclusive = rangeQuery.getToInclusive();
         DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
-            ensureRoomStartTimeLoaded(rangeQuery.toQueryContext());
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
             }
@@ -87,11 +83,10 @@ public class ControlPointDataServiceImpl implements ControlPointDataService {
         Integer toInclusive = rangeQuery.getToInclusive();
         DynamicDataSourceContextHolder.set(dataSourceKey);
         try {
-            ensureRoomStartTimeLoaded(rangeQuery.toQueryContext());
             if (toInclusive == null || fromExclusive == null || toInclusive <= fromExclusive) {
                 return new ArrayList<>();
             }
-            return cloneDataList(sortById(new ArrayList<>(indexById(queryRowsBetween(dataSourceKey, fromExclusive, toInclusive)).values())));
+            return cloneDataList(sortByControlPointId(new ArrayList<>(indexByControlPointId(queryRowsBetween(dataSourceKey, fromExclusive, toInclusive)).values())));
         } finally {
             DynamicDataSourceContextHolder.clear();
         }
@@ -138,44 +133,82 @@ public class ControlPointDataServiceImpl implements ControlPointDataService {
                 snapshotQuery.getIntervalSeconds(),
                 previousFullTime
         );
-        Map<Integer, ControlPoint> mergedRowsById = indexById(getFullSnapshotAtCachePoint(previousSnapshotQuery));
+        Map<Integer, ControlPoint> mergedRowsByControlPointId = indexByControlPointId(getFullSnapshotAtCachePoint(previousSnapshotQuery));
         for (ControlPoint row : queryRowsBetween(dataSourceKey, previousFullTime, targetTime)) {
-            if (row != null && row.getId() != null) {
-                mergedRowsById.put(row.getId(), row);
+            if (row != null && row.getControlPointId() != null) {
+                mergedRowsByControlPointId.put(row.getControlPointId(), row);
             }
         }
-        return sortById(new ArrayList<>(mergedRowsById.values()));
+        return sortByControlPointId(new ArrayList<>(mergedRowsByControlPointId.values()));
     }
 
     /** 构造基础快照。 */
     private List<ControlPoint> buildZeroPointSnapshot(String dbName) {
-        return sortById(new ArrayList<>(indexById(queryRowsAtTime(dbName, 0)).values()));
+        return sortByControlPointId(new ArrayList<>(indexByControlPointId(queryRowsAtTime(dbName, 0)).values()));
     }
 
     /** 查询单秒控制点数据。 */
     private List<ControlPoint> queryRowsAtTime(String dbName, int simTimeValue) {
-        Date roomStartTime = getRequiredRoomStartTime(dbName);
-        Timestamp startTime = toAbsoluteTime(roomStartTime, toMillisecondStart(simTimeValue));
-        Timestamp endTimeExclusive = toAbsoluteTime(roomStartTime, toMillisecondEndExclusive(simTimeValue));
-        LambdaQueryWrapper<ControlPoint> queryWrapper = Wrappers.<ControlPoint>lambdaQuery()
-                .ge(ControlPoint::getCreateTime, startTime)
-                .lt(ControlPoint::getCreateTime, endTimeExclusive)
-                .orderByAsc(ControlPoint::getCreateTime)
-                .orderByAsc(ControlPoint::getId);
-        return hydrateSimTime(dbName, controlPointMapper.selectList(queryWrapper));
+        return queryRowsByFireJudgeTimeWindow(toMillisecondStart(simTimeValue), toMillisecondEndExclusive(simTimeValue));
     }
 
     /** 查询区间控制点数据。 */
     private List<ControlPoint> queryRowsBetween(String dbName, int fromExclusive, int toInclusive) {
-        Date roomStartTime = getRequiredRoomStartTime(dbName);
-        Timestamp startTime = toAbsoluteTime(roomStartTime, toMillisecondStart(fromExclusive + 1));
-        Timestamp endTimeExclusive = toAbsoluteTime(roomStartTime, toMillisecondEndExclusive(toInclusive));
+        return queryRowsByFireJudgeTimeWindow(toMillisecondStart(fromExclusive + 1), toMillisecondEndExclusive(toInclusive));
+    }
+
+    /** 根据夺控裁决事件查询控制点。 */
+    private List<ControlPoint> queryRowsByFireJudgeTimeWindow(int startMillisecond, int endMillisecondExclusive) {
+        List<FireJudgeResult> controlPointEvents = queryControlPointEvents(startMillisecond, endMillisecondExclusive);
+        if (controlPointEvents.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Map<Integer, ControlPoint> controlPointsByControlPointId = queryControlPointsByControlPointId(controlPointEvents);
+        List<ControlPoint> rows = new ArrayList<>(controlPointEvents.size());
+        for (FireJudgeResult event : controlPointEvents) {
+            if (event == null || event.getControlPointId() == null) {
+                continue;
+            }
+            ControlPoint source = controlPointsByControlPointId.get(event.getControlPointId());
+            if (source == null) {
+                continue;
+            }
+            ControlPoint clone = new ControlPoint();
+            BeanUtils.copyProperties(source, clone);
+            clone.setSimTime(event.getSimTime());
+            rows.add(clone);
+        }
+        return rows;
+    }
+
+    /** 查询时间窗口内的夺控裁决事件。 */
+    private List<FireJudgeResult> queryControlPointEvents(int startMillisecond, int endMillisecondExclusive) {
+        LambdaQueryWrapper<FireJudgeResult> queryWrapper = Wrappers.<FireJudgeResult>lambdaQuery()
+                .eq(FireJudgeResult::getType, FIRE_JUDGE_TYPE_CONTROL_POINT)
+                .isNotNull(FireJudgeResult::getControlPointId)
+                .ge(FireJudgeResult::getSimTime, startMillisecond)
+                .lt(FireJudgeResult::getSimTime, endMillisecondExclusive)
+                .orderByAsc(FireJudgeResult::getSimTime)
+                .orderByAsc(FireJudgeResult::getControlPointId)
+                .orderByAsc(FireJudgeResult::getId);
+        return fireJudgeResultMapper.selectList(queryWrapper);
+    }
+
+    /** 批量查询控制点主表。 */
+    private Map<Integer, ControlPoint> queryControlPointsByControlPointId(List<FireJudgeResult> controlPointEvents) {
+        List<Integer> controlPointIds = new ArrayList<>();
+        for (FireJudgeResult event : controlPointEvents) {
+            if (event != null && event.getControlPointId() != null && !controlPointIds.contains(event.getControlPointId())) {
+                controlPointIds.add(event.getControlPointId());
+            }
+        }
+        if (controlPointIds.isEmpty()) {
+            return new LinkedHashMap<>();
+        }
         LambdaQueryWrapper<ControlPoint> queryWrapper = Wrappers.<ControlPoint>lambdaQuery()
-                .ge(ControlPoint::getCreateTime, startTime)
-                .lt(ControlPoint::getCreateTime, endTimeExclusive)
-                .orderByAsc(ControlPoint::getCreateTime)
-                .orderByAsc(ControlPoint::getId);
-        return hydrateSimTime(dbName, controlPointMapper.selectList(queryWrapper));
+                .in(ControlPoint::getControlPointId, controlPointIds)
+                .orderByAsc(ControlPoint::getControlPointId);
+        return indexByControlPointId(controlPointMapper.selectList(queryWrapper));
     }
 
     /** 获取控制点快照缓存。 */
@@ -187,26 +220,26 @@ public class ControlPointDataServiceImpl implements ControlPointDataService {
         return cacheByInterval.computeIfAbsent(snapshotQuery.getIntervalSeconds(), key -> new ConcurrentHashMap<>());
     }
 
-    /** 按 id 建索引。 */
-    private Map<Integer, ControlPoint> indexById(List<ControlPoint> rows) {
-        Map<Integer, ControlPoint> rowsById = new LinkedHashMap<>();
+    /** 按 controlPointId 建索引。 */
+    private Map<Integer, ControlPoint> indexByControlPointId(List<ControlPoint> rows) {
+        Map<Integer, ControlPoint> rowsByControlPointId = new LinkedHashMap<>();
         for (ControlPoint row : rows) {
-            if (row != null && row.getId() != null) {
-                rowsById.put(row.getId(), row);
+            if (row != null && row.getControlPointId() != null) {
+                rowsByControlPointId.put(row.getControlPointId(), row);
             }
         }
-        return rowsById;
+        return rowsByControlPointId;
     }
 
-    /** 按 id 排序。 */
-    private List<ControlPoint> sortById(List<ControlPoint> rows) {
+    /** 按 controlPointId 排序。 */
+    private List<ControlPoint> sortByControlPointId(List<ControlPoint> rows) {
         List<ControlPoint> filteredRows = new ArrayList<>();
         for (ControlPoint row : rows) {
             if (row != null) {
                 filteredRows.add(row);
             }
         }
-        filteredRows.sort((left, right) -> compareNullableInteger(left.getId(), right.getId()));
+        filteredRows.sort((left, right) -> compareNullableInteger(left.getControlPointId(), right.getControlPointId()));
         return filteredRows;
     }
 
@@ -237,41 +270,6 @@ public class ControlPointDataServiceImpl implements ControlPointDataService {
         );
     }
 
-    /** 加载房间开始时间。 */
-    private void ensureRoomStartTimeLoaded(ProgressQueryContext queryContext) {
-        String dataSourceKey = queryContext.getDataSourceKey();
-        if (roomStartTimeCache.containsKey(dataSourceKey)) {
-            return;
-        }
-        roomStartTimeCache.putIfAbsent(dataSourceKey, roomInfoService.queryRequiredStartTime(queryContext));
-    }
-
-    /** 获取房间开始时间。 */
-    private Date getRequiredRoomStartTime(String dbName) {
-        Date roomStartTime = roomStartTimeCache.get(dbName);
-        if (roomStartTime == null) {
-            throw new IllegalStateException("未加载 ROOM_INFO.startTime: dbName=" + dbName);
-        }
-        return roomStartTime;
-    }
-
-    /** 补齐 simTime 字段。 */
-    private List<ControlPoint> hydrateSimTime(String dbName, List<ControlPoint> rows) {
-        Date roomStartTime = getRequiredRoomStartTime(dbName);
-        for (ControlPoint row : rows) {
-            if (row != null && row.getCreateTime() != null) {
-                row.setSimTime(toRelativeMillisecond(roomStartTime, row.getCreateTime()));
-            }
-        }
-        return rows;
-    }
-
-    /** 计算绝对时间。 */
-    private Timestamp toAbsoluteTime(Date roomStartTime, int millisecondOffset) {
-        long startMillis = roomStartTime.getTime();
-        return new Timestamp(startMillis + Math.max(millisecondOffset, 0));
-    }
-
     /** 秒转毫秒起点。 */
     private int toMillisecondStart(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0), 1000);
@@ -280,11 +278,6 @@ public class ControlPointDataServiceImpl implements ControlPointDataService {
     /** 秒转毫秒终点。 */
     private int toMillisecondEndExclusive(int secondValue) {
         return Math.multiplyExact(Math.max(secondValue, 0) + 1, 1000);
-    }
-
-    /** 计算相对毫秒。 */
-    private int toRelativeMillisecond(Date roomStartTime, Date createTime) {
-        return Math.toIntExact(createTime.getTime() - roomStartTime.getTime());
     }
 
     /** 比较可空整数。 */

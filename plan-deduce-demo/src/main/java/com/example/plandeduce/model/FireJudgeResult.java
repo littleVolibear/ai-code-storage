@@ -18,6 +18,10 @@ public class FireJudgeResult {
     private Integer physicalTime; // 库里按毫秒存储的仿真时间，对外查询直接返回原值
     @TableField("SIM_TIME")
     private Integer simTime; // 库里按毫秒存储的业务时间，对外查询直接返回原值
+    @TableField("TYPE")
+    private Integer type; // 裁决类型，9 表示夺控点
+    @TableField("CONTROL_POINT_ID")
+    private Integer controlPointId; // 夺控点 ID，对应 CONTRO_POINT.CONTROL_POINT_ID
     @TableField(exist = false)
     private Integer realTime; // 记录对应的真实时间，当前取自 simTime
 }
