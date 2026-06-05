@@ -1,19 +1,21 @@
 INSERT INTO ROOM_INFO(id, title, totalTime, startTime)
 VALUES (1, '示例推演', 20, '2026-01-01 00:00:00');
 
-INSERT INTO FIRE_JUDGE_RESULT(ID, ROOM_ID, OBJ_ID, TAR_OBJ_ID, PHYSICAL_TIME, SIM_TIME)
+INSERT INTO FIRE_JUDGE_RESULT(ID, ROOM_ID, OBJ_ID, TAR_OBJ_ID, PHYSICAL_TIME, SIM_TIME, TYPE, CONTROL_POINT_ID)
 SELECT
     CAST((t.X * 10) + p.seq AS BIGINT),
     '1',
     p.obj_id,
     p.tar_obj_id,
     t.X * 1000,
-    t.X * 1000
+    t.X * 1000,
+    9,
+    p.control_point_id
 FROM SYSTEM_RANGE(0, 1200) t
 CROSS JOIN (
-    SELECT 1 AS seq, 101 AS obj_id, 201 AS tar_obj_id
+    SELECT 1 AS seq, 101 AS obj_id, 201 AS tar_obj_id, 1 AS control_point_id
     UNION ALL
-    SELECT 2 AS seq, 102 AS obj_id, 202 AS tar_obj_id
+    SELECT 2 AS seq, 102 AS obj_id, 202 AS tar_obj_id, 2 AS control_point_id
 ) p;
 
 INSERT INTO INDRECT_FIRE_PLAN(ID, ROOM_ID, OBJ_ID, CREATE_TIME, IF_ID, SIM_TIME)
@@ -47,17 +49,10 @@ CROSS JOIN (
     SELECT 3 AS seq, 3 AS obj_id
 ) p;
 
-INSERT INTO CONTRO_POINT(ID, ROOM_ID, CREATE_TIME)
-SELECT
-    p.seq,
-    501,
-    DATEADD('SECOND', t.X, TIMESTAMP '2026-01-01 00:00:00')
-FROM SYSTEM_RANGE(0, 1200) t
-CROSS JOIN (
-    SELECT 1 AS seq
-    UNION ALL
-    SELECT 2 AS seq
-) p;
+INSERT INTO CONTRO_POINT(CONTROL_POINT_ID, ROOM_ID, CREATE_TIME)
+VALUES
+    (1, 501, TIMESTAMP '2026-01-01 00:00:00'),
+    (2, 501, TIMESTAMP '2026-01-01 00:00:00');
 
 INSERT INTO OBJ_ROOM_HIS(
     ROOM_OBJECT_ID,

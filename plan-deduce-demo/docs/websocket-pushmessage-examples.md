@@ -71,6 +71,6 @@
 - 当前推演推进到哪里看外层 `deduceTime`
 - 具体渲染哪几秒的数据，看 `data[].simTime`
 - 具体渲染哪几秒的事件、间瞄计划、指令、控制点数据，分别看 `eventData[].simTime`、`indrectFirePlanData[].simTime`、`commandInfoData[].simTime`、`controlPointData[].simTime`
-- `SKIP` 时，`data` 和 `controlPointData` 是跳点后的当前状态，内部按各自最近全量快照数据加跳点区间增量数据拼装；`eventData`、`commandInfoData` 是第 0 秒到跳点秒的全部数据；外层 `indrectFirePlanData` 只包含跳点目标秒窗口内的数据
+- `SKIP` 时，`data` 是跳点后的当前对象状态，内部按最近全量快照数据加跳点区间增量数据拼装；`controlPointData` 由 `FIRE_JUDGE_RESULT.type=9` 的夺控事件按 `control_point_id` 匹配 `CONTRO_POINT.control_point_id` 得到；`eventData`、`commandInfoData` 是第 0 秒到跳点秒的全部数据；外层 `indrectFirePlanData` 只包含跳点目标秒窗口内的数据
 - `SKIP` 时，跳点特殊渲染只看 `skipRenderData`；其中 `skipRenderData.data` 与外层 `data` 一致，`eventData`、`commandInfoData`、`controlPointData` 只包含跳点目标秒窗口内的数据，不包含 `indrectFirePlanData`
 - 前端始终只消费聚合后的 `data/eventData/indrectFirePlanData/commandInfoData/controlPointData`

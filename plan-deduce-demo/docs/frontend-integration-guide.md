@@ -177,7 +177,7 @@ GET /plan/skip
 
 - 会推 `SKIP`
 - 会把 `deduceTime` 和 `realTime` 一起设到目标秒
-- `data` 和 `controlPointData` 是跳点后的当前状态，内部按各自最近全量快照数据加跳点区间增量数据拼装
+- `data` 是跳点后的对象当前状态，内部按最近全量快照数据加跳点区间增量数据拼装；`controlPointData` 由 `FIRE_JUDGE_RESULT.type=9` 的夺控事件按 `control_point_id` 匹配 `CONTRO_POINT.control_point_id` 得到
 - `eventData`、`commandInfoData` 是第 0 秒到跳点秒的全部数据；外层 `indrectFirePlanData` 只包含跳点目标秒窗口内的数据
 - 如果当前任务没在运行，会自动恢复
 
@@ -259,7 +259,7 @@ type PushMessage = {
 
 1. 当前主消费字段是 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData`。
 2. `fullData` / `incrementalData` 以及对应的 `*FullData` / `*IncrementalData` 现在对外固定为空数组。
-3. `SKIP` 时，`data` 和 `controlPointData` 表示跳点后的当前状态，内部由各自最近全量快照数据加跳点区间增量数据拼装得到。
+3. `SKIP` 时，`data` 表示跳点后的对象当前状态，内部由最近全量快照数据加跳点区间增量数据拼装得到；`controlPointData` 来自 `FIRE_JUDGE_RESULT.type=9` 的夺控事件。
 4. `SKIP` 时，`eventData`、`commandInfoData` 包含第 0 秒到跳点秒的全部数据；外层 `indrectFirePlanData` 只包含跳点目标秒窗口内的数据。
 5. `SKIP` 时，`skipRenderData.data` 与外层 `data` 一致。
 6. `SKIP` 时，`skipRenderData.eventData`、`skipRenderData.commandInfoData`、`skipRenderData.controlPointData` 只包含跳点目标秒窗口内的数据，例如跳到 660 秒就是 `660000 <= simTime < 661000`；`skipRenderData` 不包含 `indrectFirePlanData`。

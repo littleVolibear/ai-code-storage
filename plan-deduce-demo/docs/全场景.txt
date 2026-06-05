@@ -55,7 +55,7 @@
 9. 全量间隔与播放帧发送规则
 - 当前全量间隔单位是秒。
 - 如果间隔配置为 10 分钟，则等价于 600 秒。
-- 跳点 `SKIP` 时，`RoomObjectHis` 对应的 `data` 和 `controlPointData` 按各自最近快照点全量数据和补丁增量拼装当前状态。
+- 跳点 `SKIP` 时，`RoomObjectHis` 对应的 `data` 按最近快照点全量数据和补丁增量拼装当前状态；`controlPointData` 由 `FIRE_JUDGE_RESULT.type=9` 的夺控事件按 `control_point_id` 匹配 `CONTRO_POINT.control_point_id` 得到。
 - 跳点 `SKIP` 时，`eventData`、`commandInfoData` 直接返回第 0 秒到跳点秒的全部数据；外层 `indrectFirePlanData` 只返回跳点目标秒窗口内的间瞄数据。
 - `INIT`、`INTERVAL`、`PLAY` 不查全量快照，只查询各自对应时间段的增量数据。
 - 即便播放刚好落在 0 分钟、10 分钟、20 分钟等整间隔点，播放帧也仍然只发送当前步长区间的增量数据。
@@ -67,7 +67,8 @@
 - 播放到 10 分钟整：仍只发送第 10 分钟这一分钟的增量数据，不切换成全量数据。
 
 11. 跳点发送规则
-- `data`、`controlPointData`：发送跳点后的当前状态，内部按各自最近快照点全量数据和补丁增量组装。
+- `data`：发送跳点后的当前对象状态，内部按最近快照点全量数据和补丁增量组装。
+- `controlPointData`：发送由夺控裁决事件匹配出的控制点状态，不再按 `CONTRO_POINT.create_time` 匹配。
 - `eventData`、`commandInfoData`：发送第 0 秒到目标跳点秒的全部数据。
 - `indrectFirePlanData`：发送跳点目标秒窗口内的间瞄数据。
 - `skipRenderData`：包含 `data`、`eventData`、`commandInfoData`、`controlPointData`；其中 `data` 与外层一致，其余三类只包含目标秒窗口，不包含 `indrectFirePlanData`。
@@ -78,7 +79,7 @@
 - `skipRenderData` 中的 `eventData`、`commandInfoData`、`controlPointData` 始终只取跳点目标秒窗口，例如跳到 10 分钟时取 `600000 <= simTime < 601000`。
 
 13. 协议说明
-- 快照拼装逻辑适用于 `RoomObjectHis` 和 `ControlPoint`。
+- 快照拼装逻辑适用于 `RoomObjectHis`；`ControlPoint` 按 `FIRE_JUDGE_RESULT.type=9` 事件驱动。
 - 当前对外协议里，前端主消费字段是 `data`、`eventData`、`indrectFirePlanData`、`commandInfoData`、`controlPointData`。
 - 前端需要处理跳点特殊渲染时，直接使用 `skipRenderData`；间瞄数据不属于 `skipRenderData`。
 - `fullData`、`incrementalData` 以及对应的 `*FullData`、`*IncrementalData` 当前固定为空数组，仅作兼容保留。
